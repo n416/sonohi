@@ -1,21 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Settings, MessageCircle, Sparkles, Key, CheckCircle2, Circle, AlertCircle, RefreshCw, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { RPGStatusRadar } from './components/RPGStatusRadar';
+import { DiagnosisReport } from './components/DiagnosisReport';
+import { RPGStatusRadar, type TimeBuff, calculateRPGStats } from './components/RPGStatusRadar';
+import { FortuneCalendar, getDailyBuffForDate } from './components/FortuneCalendar';
+import { generateDiagnosis } from './components/DiagnosisReport';
+import { StickyMiniStatus } from './components/StickyMiniStatus';
+
+import { calculateMeishiki, type Meishiki, type GogyoScore } from './utils/meishiki';
 
 // ==========================================
 // 1. コア演算エンジン（パッチ処理ロジック）
 // ==========================================
-
-type GogyoScore = { wood: number; fire: number; earth: number; metal: number; water: number };
-type Meishiki = {
-  year: number; 
-  month: number; 
-  day: number; 
-  time: string;
-  kanchi: { year: string; month: string; day: string; time: string };
-  gogyoScore: GogyoScore;
-  logs: string[];
-};
 
 type Patch = {
   id: string;
@@ -24,41 +19,7 @@ type Patch = {
   apply: (m: Meishiki) => Meishiki;
 };
 
-const getDummyKanchi = (val: number, type: 'year' | 'month' | 'day' | 'time') => {
-  const jikkan = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
-  const junishi = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-  const hash = val * (type === 'year' ? 1 : type === 'month' ? 31 : type === 'day' ? 12 : 60);
-  return jikkan[hash % 10] + junishi[hash % 12];
-};
-
-const getDummyGogyo = (y: number, m: number, d: number, t: string) => {
-  const tNum = t === '不明' ? 0 : t.charCodeAt(0);
-  const base = y + m * 13 + d * 31 + tNum;
-  
-  // 生年月日に基づいてスコアが変動するように計算（ダミー）
-  const wood = 10 + (base % 25);
-  const fire = 10 + ((base * 2) % 25);
-  const earth = 10 + ((base * 3) % 25);
-  const metal = 10 + ((base * 4) % 25);
-  const water = 100 - (wood + fire + earth + metal); // 全体のバランスを調整
-
-  return { wood, fire, earth, metal, water };
-};
-
-const createInitialMeishiki = (year: number, month: number, day: number, time: string): Meishiki => {
-  const timeNum = time === '不明' ? 0 : time.charCodeAt(0);
-  return {
-    year, month, day, time,
-    kanchi: {
-      year: getDummyKanchi(year, 'year'),
-      month: getDummyKanchi(month, 'month'),
-      day: getDummyKanchi(day, 'day'),
-      time: time === '不明' ? '不明' : getDummyKanchi(timeNum, 'time')
-    },
-    gogyoScore: getDummyGogyo(year, month, day, time),
-    logs: ["初期命式を生成しました。"]
-  };
-};
+// ダミー計算関数は ./utils/meishiki.ts の calculateMeishiki に移行しました。
 
 const PATCH_REGISTRY: Record<string, Patch> = {
   "PATCH_KANGOU": {
@@ -100,6 +61,8 @@ const evaluateMeishiki = (base: Meishiki, activePatchIds: string[]): Meishiki =>
     return patch ? patch.apply(currentMeishiki) : currentMeishiki;
   }, base);
 };
+
+// 運勢マトリョーシカ（多重バフ）ダミーデータの生成処理はコンポーネント内に移動しました。
 
 // ==========================================
 // 2. LLM推時チャット（時間逆算インターフェース）
@@ -243,6 +206,7 @@ export default function App() {
   const [result, setResult] = useState<Meishiki | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const junishiList = ["不明", "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
 
@@ -254,14 +218,32 @@ export default function App() {
 
   // リアクティブな自動計算
   useEffect(() => {
-    if (time === "不明") {
-      setResult(null); // 時間不明時は計算結果をクリア
-      return;
-    }
-    const initial = createInitialMeishiki(year, month, day, time);
+    const initial = calculateMeishiki(year, month, day, time);
     const finalResult = evaluateMeishiki(initial, activePatches);
     setResult(finalResult);
   }, [year, month, day, time, activePatches]);
+
+  const baseData = useMemo(() => {
+    if (!result) return null;
+    const nikkanGogyo = getGogyoFromKan(result.kanchi.day.charAt(0));
+    const baseStats = calculateRPGStats(result.gogyoScore, nikkanGogyo, []);
+    const baseDiagnosis = generateDiagnosis(baseStats, false);
+    return { nikkanGogyo, baseStats, baseDiagnosisType: baseDiagnosis.type };
+  }, [result]);
+
+  const finalStatsData = useMemo(() => {
+    if (!result || !baseData) return null;
+    const dailyBuffEffect = getDailyBuffForDate(selectedDate);
+    const currentTimeBuffs: TimeBuff[] = [
+      { layer: "大運 (10年)", name: "炎のフィールド", effect: { HP: 15, ATK: 5, DEX: 0, DEF: 0, MP: 0 } },
+      { layer: "年運 (1年)", name: "知識の雨", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 0, MP: 10 } },
+      { layer: "月運 (1ヶ月)", name: "プレッシャー", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 5, MP: 0 } },
+      { layer: "日運 (選択日)", name: "タイムトラベル中", effect: dailyBuffEffect }
+    ];
+    const finalStats = calculateRPGStats(result.gogyoScore, baseData.nikkanGogyo, currentTimeBuffs);
+    const finalDiagnosis = generateDiagnosis(finalStats, true);
+    return { finalStats, finalDiagnosis, currentTimeBuffs };
+  }, [result, baseData, selectedDate]);
 
   const startChat = () => {
     if (!apiKey) {
@@ -273,7 +255,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans selection:bg-indigo-500/30">
-      <div className="max-w-5xl mx-auto p-6 lg:p-12">
+      {finalStatsData && (
+        <StickyMiniStatus 
+          finalStats={finalStatsData.finalStats}
+          diagnosisTitle={finalStatsData.finalDiagnosis.title}
+          selectedDate={selectedDate}
+        />
+      )}
+      <div className="max-w-5xl mx-auto p-6 lg:p-12 pt-8">
         <header className="mb-12 text-center space-y-4">
           <div className="inline-flex items-center justify-center p-3 bg-indigo-500/10 rounded-2xl text-indigo-400 mb-2">
             <Sparkles size={32} />
@@ -361,6 +350,15 @@ export default function App() {
                 })}
               </div>
             </div>
+
+            {result && baseData && (
+              <FortuneCalendar 
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                baseStatsData={baseData.baseStats}
+                baseDiagnosisType={baseData.baseDiagnosisType}
+              />
+            )}
           </div>
 
           <div className="lg:col-span-7">
@@ -370,12 +368,49 @@ export default function App() {
                 
                 <h2 className="text-2xl font-bold text-white mb-8 border-b border-slate-800 pb-4">鑑定結果</h2>
                 
+                {time === "不明" && (
+                  <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-indigo-400 font-bold mb-1">
+                        <MessageCircle size={18} />
+                        出生時間が不明です
+                      </div>
+                      <p className="text-sm text-slate-400">
+                        時間が不明なため、時柱のデータが欠落しています。過去の出来事からAIが推時（時間を特定）できます。
+                      </p>
+                    </div>
+                    <button 
+                      onClick={startChat}
+                      className="shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl px-6 py-3 flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
+                    >
+                      <Sparkles size={16} />
+                      AI推時チャット
+                    </button>
+                  </div>
+                )}
+                
                 <div className="mb-8">
-                  <RPGStatusRadar 
-                    scores={result.gogyoScore} 
-                    nikkanGogyo={getGogyoFromKan(result.kanchi.day.charAt(0))} 
-                    nikkanKan={result.kanchi.day.charAt(0)} 
-                  />
+                  {(() => {
+                    if (!baseData || !finalStatsData) return null;
+                    const { nikkanGogyo } = baseData;
+                    const { currentTimeBuffs } = finalStatsData;
+
+                    return (
+                      <>
+                        <RPGStatusRadar 
+                          scores={result.gogyoScore} 
+                          nikkanGogyo={nikkanGogyo} 
+                          nikkanKan={result.kanchi.day.charAt(0)} 
+                          timeBuffs={currentTimeBuffs}
+                        />
+                        <DiagnosisReport 
+                          scores={result.gogyoScore} 
+                          nikkanGogyo={nikkanGogyo} 
+                          timeBuffs={currentTimeBuffs}
+                        />
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="bg-slate-900/50 border border-slate-700/50 rounded-2xl overflow-hidden mt-8">
@@ -444,34 +479,11 @@ export default function App() {
               </div>
             ) : (
               <div className="h-full bg-slate-900/30 border border-slate-800/50 border-dashed rounded-3xl flex flex-col items-center justify-center p-12 text-slate-500">
-                {time === "不明" ? (
-                  <div className="text-center max-w-sm">
-                    <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <MessageCircle size={32} className="text-indigo-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">出生時間が不明です</h3>
-                    <p className="text-sm mb-8 text-slate-400">
-                      正確な命式を算出するためには、AIによる推時チャットで過去の出来事から時間を特定する必要があります。
-                    </p>
-                    <button 
-                      onClick={startChat}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-md rounded-2xl py-3 flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-[0.98]"
-                    >
-                      <Sparkles size={18} />
-                      AI推時チャットを開始する
-                    </button>
-                    {!apiKey && (
-                      <p className="text-xs text-red-400 mt-4 flex items-center justify-center gap-1">
-                        <AlertCircle size={14} /> 左側のパネルからAPIキーを入力してください
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Settings size={48} className="mx-auto mb-4 opacity-20" />
-                    <p>データを入力すると<br/>自動的に鑑定結果が表示されます。</p>
-                  </div>
-                )}
+                {/* データ入力待機状態（現在初期値が入っているため基本表示されません） */}
+                <div className="text-center">
+                  <Settings size={48} className="mx-auto mb-4 opacity-20" />
+                  <p>データを入力すると<br/>自動的に鑑定結果が表示されます。</p>
+                </div>
               </div>
             )}
           </div>
