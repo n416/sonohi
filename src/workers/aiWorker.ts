@@ -1,7 +1,10 @@
 import { pipeline, env, cos_sim, type PipelineType } from '@xenova/transformers';
 
-// Hugging Face Hubから直接取得するようにローカルモデルを無効化
+// Hugging Face Hubから直接取得するよう、ローカルモデルを無効化
 env.allowLocalModels = false;
+
+// GitHub Pages環境でのWASMファイル404エラーを防ぐため、WASMバックエンドをCDNに向ける
+env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/';
 
 class PipelineSingleton {
   static task: PipelineType = 'feature-extraction';

@@ -342,8 +342,13 @@ export const ProfileChat = ({
           {!isWorkerReady && (
             <div className="flex justify-center mb-4">
               <div className="bg-slate-800/50 border border-slate-700/50 text-slate-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-2">
-                <Loader2 size={12} className="animate-spin text-indigo-400" />
-                AIモデルを初期化中... {loadingStatus && <span className="opacity-50 max-w-[150px] truncate">{loadingStatus}</span>}
+                <Loader2 size={12} className="animate-spin text-indigo-400 shrink-0" />
+                <span className="whitespace-nowrap">AIモデルを初期化中...</span>
+                {loadingStatus && (
+                  <span className="opacity-50 w-32 inline-block truncate align-bottom">
+                    {loadingStatus}
+                  </span>
+                )}
               </div>
             </div>
           )}
