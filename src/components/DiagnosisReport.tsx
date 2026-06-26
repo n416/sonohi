@@ -111,62 +111,46 @@ export const DiagnosisReport: React.FC<Props> = ({ scores, nikkanGogyo, timeBuff
   }
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="space-y-3 mt-3">
       {/* =========================================
-          カード1: 基礎ステータス (Base Personality)
+          コンパクト化: 基本クラス (Base Class)
          ========================================= */}
-      <div className="bg-slate-900/80 border border-indigo-500/30 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-        <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-bold tracking-widest border border-indigo-500/20 uppercase">
-            <Activity size={14} />
-            基本性格 (Base Personality)
-          </div>
-
-          <h3 className="text-2xl md:text-3xl font-black text-white drop-shadow-md">
-            {baseDiagnosis.title}
-          </h3>
-
-          <div className="space-y-3">
-            <p className="text-sm md:text-base text-slate-300 leading-relaxed max-w-2xl font-medium">
-              {baseDiagnosis.description}
-            </p>
-            <p className="text-xs md:text-sm text-slate-400 leading-relaxed max-w-2xl font-medium italic">
-              {baseDiagnosis.subText}
-            </p>
-          </div>
+      <div className="flex items-center justify-between bg-slate-900/50 border border-slate-700/50 rounded-xl p-2.5 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Activity size={14} className="text-slate-500" />
+          <span className="text-[10px] text-slate-400 font-bold">ベース:</span>
+          <span className="text-xs font-black text-slate-200 drop-shadow-sm">{baseDiagnosis.title}</span>
         </div>
       </div>
 
       {/* =========================================
           カード2: 本日のステータス (Today's Status)
          ========================================= */}
-      <div className="bg-slate-800/90 border border-emerald-500/30 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
+      <div className="bg-slate-800/90 border border-emerald-500/30 rounded-2xl p-3 shadow-xl relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-50"></div>
         
-        <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold tracking-widest border border-emerald-500/20 uppercase">
-            <Zap size={14} />
-            本日の状態 (Today's Status)
+        <div className="relative z-10 flex flex-col items-center text-center space-y-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold tracking-widest border border-emerald-500/20 uppercase">
+            <Zap size={12} />
+            Today's Status
           </div>
 
-          <div className="w-full max-w-md bg-slate-900/80 rounded-2xl p-4 md:p-5 border border-slate-700/50 shadow-inner relative">
+          <div className="w-full max-w-md bg-slate-900/80 rounded-xl p-3 border border-slate-700/50 shadow-inner relative">
             {isClassChanged && (
-              <div className="flex items-center justify-center gap-3 bg-indigo-500/20 border border-indigo-500/50 px-4 py-2 rounded-xl text-indigo-300 font-bold text-sm animate-pulse mb-4">
-                <Zap size={16} className="text-yellow-400" />
-                <span className="opacity-70 line-through">ベース: {baseDiagnosis.type === 'shinkyo' ? 'アタッカー' : 'ディフェンダー'}</span>
-                <ArrowRight size={14} className="text-indigo-400" />
-                <span className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]">本日: {currentDiagnosis.type === 'shinkyo' ? 'アタッカー' : 'ディフェンダー'}に反転！</span>
+              <div className="flex items-center justify-center gap-2 bg-indigo-500/20 border border-indigo-500/50 px-2 py-1.5 rounded-lg text-indigo-300 font-bold text-[10px] animate-pulse mb-3">
+                <Zap size={12} className="text-yellow-400" />
+                <span className="opacity-70 line-through">{baseDiagnosis.type === 'shinkyo' ? 'アタッカー' : 'ディフェンダー'}</span>
+                <ArrowRight size={10} className="text-indigo-400" />
+                <span className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]">反転: {currentDiagnosis.type === 'shinkyo' ? 'アタッカー' : 'ディフェンダー'}</span>
               </div>
             )}
 
-            <div className="flex justify-between text-xs font-bold mb-2 px-1">
+            <div className="flex justify-between text-[10px] font-bold mb-1.5 px-1">
               <span className="text-emerald-400">Base Power: {currentDiagnosis.basePower}</span>
               <span className="text-rose-400">World Burden: {currentDiagnosis.worldBurden}</span>
             </div>
 
-            <div className="relative h-4 bg-slate-700/50 rounded-full overflow-hidden flex border border-slate-600/50">
+            <div className="relative h-2 bg-slate-700/50 rounded-full overflow-hidden flex border border-slate-600/50">
               <div
                 className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000 ease-out"
                 style={{ width: `${basePowerRatio}%` }}
@@ -176,25 +160,25 @@ export const DiagnosisReport: React.FC<Props> = ({ scores, nikkanGogyo, timeBuff
               ></div>
             </div>
 
-            <div className="mt-4 text-sm font-black text-slate-200 tracking-wide bg-slate-800 py-2 rounded-xl border border-slate-700/50">
-              本日の最終ステータス: <span className={finalStatusColor}>
+            <div className="mt-2 text-xs font-black text-slate-200 tracking-wide bg-slate-800 py-1.5 rounded-lg border border-slate-700/50">
+              最終状態: <span className={finalStatusColor}>
                 {finalStatusText}
               </span>
             </div>
           </div>
 
           {dailyActionAdvice && (
-            <div className={`w-full max-w-2xl text-left p-4 rounded-xl border shadow-lg ${dailyActionAdvice.status === 'GOOD'
+            <div className={`w-full max-w-2xl text-left p-2.5 rounded-lg border shadow-md ${dailyActionAdvice.status === 'GOOD'
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-100'
                 : 'bg-rose-500/10 border-rose-500/30 text-rose-100'
               }`}>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2">
                 {dailyActionAdvice.status === 'GOOD' ? (
-                  <Lightbulb className="text-emerald-400 shrink-0 mt-0.5" size={20} />
+                  <Lightbulb className="text-emerald-400 shrink-0 mt-0.5" size={14} />
                 ) : (
-                  <AlertTriangle className="text-rose-400 shrink-0 mt-0.5" size={20} />
+                  <AlertTriangle className="text-rose-400 shrink-0 mt-0.5" size={14} />
                 )}
-                <p className="text-sm md:text-base font-bold leading-relaxed whitespace-pre-wrap">
+                <p className="text-[10px] font-bold leading-relaxed whitespace-pre-wrap">
                   {dailyActionAdvice.text}
                 </p>
               </div>

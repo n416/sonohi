@@ -158,3 +158,59 @@ export const getScore = (buff: Record<StatKey, number>, baseDiagnosisType: Diagn
   const consumeBuff = (buff.ATK || 0) + (buff.DEX || 0) + (buff.DEF || 0);
   return baseDiagnosisType === 'shinkyo' ? consumeBuff - energyBuff : energyBuff - consumeBuff;
 };
+
+export const generateDailyAdvice = (date: Date, statsData: { key: StatKey; baseValue: number; currentValue: number }[]) => {
+  const dailyBuff = getDailyBuffForDate(date);
+  
+  let dailyTargetKey: StatKey | null = null;
+  let dailyAmount = 0;
+  
+  statsKeys.forEach(key => {
+    if (dailyBuff[key] !== 0) {
+      dailyTargetKey = key;
+      dailyAmount = dailyBuff[key];
+    }
+  });
+
+  // 日運がない（すべて0）のフォールバック用
+  let baseMaxKey: StatKey = statsData[0].key;
+  let baseMaxVal = statsData[0].baseValue;
+  statsData.forEach(stat => {
+    if (stat.baseValue > baseMaxVal) {
+      baseMaxVal = stat.baseValue;
+      baseMaxKey = stat.key;
+    }
+  });
+
+  const targetKey: StatKey = dailyTargetKey || baseMaxKey;
+  const isPositive = dailyAmount >= 0;
+
+  let trendText = "";
+  if (isPositive) {
+    trendText = `今日は『${targetKey}』の運気が上昇中！この追い風を活かしつつ、勢い余って空回りしないよう注意しましょう。`;
+  } else {
+    trendText = `今日は『${targetKey}』の調子が少し不安定。焦らずに、いつもより慎重な立ち回りが求められます。`;
+  }
+
+  const adviceDO: Record<StatKey, string> = {
+    HP: "十分な休養を取る\n基礎体力をつける運動\nリラックスできる環境での充電",
+    ATK: "アイデアの形出し\nクリエイティブな活動\n自己表現と思い切った発言",
+    DEX: "人脈作りとコミュニケーション\n投資や買い物\n目標に向けた具体的な行動",
+    DEF: "整理整頓\nルールの見直しや計画を立てる\n責任ある仕事の遂行",
+    MP: "学習や読書\n資格の勉強\n精神的な探求やインプット"
+  };
+
+  const adviceDONT: Record<StatKey, string> = {
+    HP: "自分の意見を無理に押し通すこと\n限界を超えた過度なエネルギーの消耗\n他者への過剰な干渉",
+    ATK: "感情的な発言や過度な批判\nルールや規則を完全に無視した行動\n他人の目を気にしすぎること",
+    DEX: "無計画な出費や浪費\n目先の利益だけに囚われること\n他人への過度な執着や八方美人",
+    DEF: "自分を過度に責めること\nキャパシティを超える仕事の引き受け\n突発的で無計画な行動",
+    MP: "頭で考えすぎて行動を先送りすること\n過去の失敗に囚われすぎること\n引きこもりがちになること"
+  };
+
+  return {
+    doText: adviceDO[targetKey],
+    dontText: adviceDONT[targetKey],
+    summary: trendText,
+  };
+};

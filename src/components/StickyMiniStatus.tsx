@@ -21,11 +21,12 @@ export const StickyMiniStatus: React.FC<Props> = ({ finalStats, diagnosisTitle, 
       
       <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 hide-scrollbar">
         {finalStats.map(s => {
-          const diff = s.currentValue - s.baseValue;
+          const diff = Math.round((s.currentValue - s.baseValue) * 10) / 10;
+          const curValStr = (Math.round(s.currentValue * 10) / 10).toString();
           return (
             <div key={s.key} className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1 shrink-0">
               <span className="text-[10px] text-slate-500 font-bold">{s.key}</span>
-              <span className="text-xs md:text-sm text-slate-200 font-black">{s.currentValue}</span>
+              <span className="text-xs md:text-sm text-slate-200 font-black">{curValStr}</span>
               {diff !== 0 && (
                 <span className={`text-[9px] font-bold ${diff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {diff > 0 ? `+${diff}` : diff}

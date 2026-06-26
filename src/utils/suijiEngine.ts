@@ -13,12 +13,15 @@ const PARAM_DETAILS: Record<string, { name: string, reason: string }> = {
 };
 
 export const extractTraumaYear = (input: string, birthYear: number): number => {
-  const yearMatch = input.match(/(19\d{2}|20\d{2})年?/);
+  const toHalfWidth = (str: string) => str.replace(/[！-～]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
+  const normalizedInput = toHalfWidth(input);
+
+  const yearMatch = normalizedInput.match(/(19\d{2}|20\d{2})年?/);
   if (yearMatch) {
     return parseInt(yearMatch[1], 10);
   }
 
-  const ageMatch = input.match(/(\d{1,3})[歳才]/);
+  const ageMatch = normalizedInput.match(/(\d{1,3})[歳才]/);
   if (ageMatch) {
     const age = parseInt(ageMatch[1], 10);
     return birthYear + age;
