@@ -1,32 +1,45 @@
-# React + TypeScript + Vite
+# sonohi
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+「sonohi」は、伝統的な四柱推命（干支歴）のロジックをベースに、あなたの運命を**「RPGのステータス」**に見立てて可視化する、新感覚の占い＆自己分析アプリケーションです。
 
-Currently, two official plugins are available:
+## ✨ 主な機能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+* **🛡️ RPG風キャラクター診断（ステータス＆クラス判定）**
+  * 生年月日から五行（木・火・土・金・水）のエネルギーバランスを算出し、「HP」「MP」「ATK」「DEF」「DEX」の5つのRPGステータスに変換します。
+  * あなたが攻めに強い「アタッカー（身強）」なのか、守りや調整に長けた「ディフェンダー（身弱）」なのかを分析し、レーダーチャートで可視化します。
 
-## React Compiler
+* **📅 タイムトラベル（運勢カレンダー）**
+  * 年運・月運・日運といった巡ってくる運気を、ゲームのような**「期間限定バフ」**としてステータスに加算します。
+  * 「この日は攻撃力が上がる日」「この日はキャパオーバーになりやすい日」などをカレンダー上で事前に把握し、戦略的に行動することができます。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+* **🧩 拡張パッチ（流派カスタマイズ）機能**
+  * 四柱推命の世界には「大富豪」のローカルルールのように、占い師によって解釈が分かれる様々なルール（流派）が存在します。
+  * 本アプリでは「夜子時（日付切り替わりルール）」「三合会局」「干合」「月令重視」など、**15種類以上の流派ルールを「パッチ」として自由に着脱可能**です。
+  * プリセット（極端・標準・おすすめ等）を切り替えながら、自分自身に最も「しっくりくる」運命のルールをカスタマイズできます。
 
-## Expanding the Oxlint configuration
+* **🤖 AIアシスタント機能**
+  * 「生まれた時間がわからない」といった悩みに対して、AIと会話をしながら過去の出来事や性格傾向から出生時間を推測・補正する機能を搭載しています。
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## 🛠️ 技術スタック
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+* **Frontend**: React + TypeScript + Vite
+* **Styling**: Tailwind CSS
+* **Icons**: Lucide React
+* **Calendar Engine**: lunar-javascript (太陰太陽暦コンバータ)
+
+## 🚀 ローカル環境での起動方法
+
+このプロジェクトは Vite を使用しています。
+
+```bash
+# 依存関係のインストール
+npm install
+
+# 開発サーバーの立ち上げ
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+ブラウザで `http://localhost:5173` にアクセスしてください。
+
+## 📝 開発メモ
+* 本アプリの占いエンジン（`meishiki.ts`, `rpgEngine.ts`）は、古典的な四柱推命の基礎理論をRPGステータスとして再解釈するための独自アルゴリズムを採用しています。
