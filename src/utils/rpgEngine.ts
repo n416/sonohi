@@ -159,7 +159,7 @@ export const getScore = (buff: Record<StatKey, number>, baseDiagnosisType: Diagn
   return baseDiagnosisType === 'shinkyo' ? consumeBuff - energyBuff : energyBuff - consumeBuff;
 };
 
-export const generateDailyAdvice = (date: Date, statsData: { key: StatKey; baseValue: number; currentValue: number }[]) => {
+export const generateDailyAdvice = (date: Date, statsData: { key: StatKey; baseValue: number; currentValue: number }[], activePatches: string[] = []) => {
   const dailyBuff = getDailyBuffForDate(date);
   
   let dailyTargetKey: StatKey | null = null;
@@ -190,6 +190,15 @@ export const generateDailyAdvice = (date: Date, statsData: { key: StatKey; baseV
     trendText = `今日は『${targetKey}』の運気が上昇中！この追い風を活かしつつ、勢い余って空回りしないよう注意しましょう。`;
   } else {
     trendText = `今日は『${targetKey}』の調子が少し不安定。焦らずに、いつもより慎重な立ち回りが求められます。`;
+  }
+
+  // パッチによる強力な運勢オーバーライド
+  if (activePatches.includes('PATCH_KUBOU') || activePatches.includes('PATCH_GOKAN_KUBOU')) {
+    trendText = `【⚠️ 空亡（天中殺）適用中】\n現在は空亡パッチの影響下にあるため、普段の運気よりも全体的なエネルギーが減衰しています。新しいことを始めるよりも、現状維持や内省に努めることが推奨されます。`;
+  } else if (activePatches.includes('PATCH_SHINSATSU')) {
+    trendText = `【🔥 神殺（特殊星）適用中】\n本日は特殊星による強力でピーキーな運気が渦巻いています。吉凶が極端に出やすいため、大きな決断には普段以上の慎重さが求められます。`;
+  } else if (activePatches.includes('PATCH_CHU_GOU')) {
+    trendText = `【🕊️ 貪合忘冲 適用中】\n衝突や波乱が回避され、物事が穏やかに丸く収まりやすい状態です。ステータスが平均化されているため突出したパワーは出にくいですが、周囲との調和を大切にすることで安定した一日を過ごせます。`;
   }
 
   const adviceDO: Record<StatKey, string> = {

@@ -1,4 +1,3 @@
-
 import { X, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { generateDailyAdvice, type StatKey } from '../utils/rpgEngine';
 
@@ -9,9 +8,10 @@ type DailyAdviceModalProps = {
     date: Date;
     stats: { key: StatKey; baseValue: number; currentValue: number }[];
   }[];
+  activePatches: string[];
 };
 
-export function DailyAdviceModal({ isOpen, onClose, dataList }: DailyAdviceModalProps) {
+export function DailyAdviceModal({ isOpen, onClose, dataList, activePatches }: DailyAdviceModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -37,7 +37,7 @@ export function DailyAdviceModal({ isOpen, onClose, dataList }: DailyAdviceModal
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 custom-scrollbar">
           {dataList.map((data, index) => {
-            const advice = generateDailyAdvice(data.date, data.stats);
+            const advice = generateDailyAdvice(data.date, data.stats, activePatches);
             const isSecond = index === 1;
             const colorConfig = isSecond 
               ? { text: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' }

@@ -14,12 +14,14 @@ export const AITimeInferenceChat = ({
   birthYear,
   birthMonth,
   birthDay,
+  activePatches,
   onComplete, 
   onCancel 
 }: { 
   birthYear: number,
   birthMonth: number,
   birthDay: number,
+  activePatches: string[],
   onComplete: (time: string) => void, 
   onCancel: () => void 
 }) => {
@@ -45,7 +47,16 @@ export const AITimeInferenceChat = ({
   useEffect(() => {
     // ワーカースレッドの初期化
     workerRef.current = new Worker(new URL('../workers/aiWorker.ts', import.meta.url), { type: 'module' });
+    workerRef.current.postMessage({ type: 'init' });
 
+    return () => {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!workerRef.current) return;
     workerRef.current.onmessage = (event) => {
       const data = event.data;
       if (data.type === 'progress') {
@@ -95,7 +106,8 @@ export const AITimeInferenceChat = ({
           birthDay, 
           traumaYear, 
           parameter as StatKey, 
-          data.inputText || ''
+          data.inputText || '',
+          activePatches
         );
 
         if (time) {
@@ -119,14 +131,7 @@ export const AITimeInferenceChat = ({
         setMessages(prev => [...prev, { role: 'assistant', content: `AIエラーが発生しました: ${data.error}` }]);
       }
     };
-
-    // 初期化指示を送信
-    workerRef.current.postMessage({ type: 'init' });
-
-    return () => {
-      workerRef.current?.terminate();
-    };
-  }, [onComplete]);
+  });
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;

@@ -69,7 +69,8 @@ export const inferTrueTimePillar = (
   birthDay: number, 
   traumaYear: number,
   targetParameter: StatKey,
-  input: string
+  input: string,
+  activePatches: string[] = []
 ): { time: string, explanation: string } => {
   
   const yearlyBuffScore = getYearlyBuffScore(traumaYear);
@@ -103,13 +104,19 @@ export const inferTrueTimePillar = (
   }
 
   const detail = PARAM_DETAILS[targetParameter as string];
+  const isYashiji = activePatches.includes('PATCH_YASHIJI');
+  let yashijiNote = '';
+  if (isYashiji && bestBranch === '子') {
+    yashijiNote = `\n\n【⚠️ 夜子時パッチ影響】\n現在システムで「夜子時パッチ」が有効になっています。AIが導き出したあなたの生まれ時間は『子時』ですが、もし実際の時刻が「23時台」であった場合、夜子時のルールにより生年月日の前提が『翌日』へとズレる特殊な計算が行われます。カレンダー上の運勢変化にご注意ください。`;
+  }
+
   const explanation = `入力いただいた「${input}」というお話から、当時の状況を分析しました。
 
 この出来事には、【${detail?.reason || ''}】という要素が強く表れています。これは四柱推命のステータスにおいて『${targetParameter}（${detail?.name || ''}）』の属性が過剰に刺激されたことで起きた事象だと推論されます。
 
 ${traumaYear}年は地球全体に特定の五行エネルギーが強く降っていた年です（天候バフ）。AIによる12パターンの時柱総当たりシミュレーションの結果、この年に${targetParameter}のステータスが最も致命的な数値（${Math.round(maxTargetStat)}）に跳ね上がるのは、あなたの生まれ時間が『${bestBranch}の刻』だった場合のみです。
 
-よって、過去の出来事のパラメータと四柱推命カレンダーエンジンの全探索逆算理論に基づき、生まれ時間は『${bestBranch}の刻』であると確定しました。`;
+よって、過去の出来事のパラメータと四柱推命カレンダーエンジンの全探索逆算理論に基づき、生まれ時間は『${bestBranch}の刻』であると確定しました。${yashijiNote}`;
 
   return { time: bestBranch, explanation };
 };

@@ -22,6 +22,28 @@ type Message = {
 
 type ChatPhase = 'idle' | 'ask_date' | 'ask_time' | 'inference_when' | 'inference_what';
 
+const formatTimeLabel = (timeStr: string) => {
+  const timeMap: Record<string, string> = {
+    "子": "23:00〜01:00",
+    "丑": "01:00〜03:00",
+    "寅": "03:00〜05:00",
+    "卯": "05:00〜07:00",
+    "辰": "07:00〜09:00",
+    "巳": "09:00〜11:00",
+    "午": "11:00〜13:00",
+    "未": "13:00〜15:00",
+    "申": "15:00〜17:00",
+    "酉": "17:00〜19:00",
+    "戌": "19:00〜21:00",
+    "亥": "21:00〜23:00"
+  };
+  const timeKey = timeStr.replace('の刻', '');
+  if (timeMap[timeKey]) {
+    return `${timeKey}（${timeMap[timeKey]}）`;
+  }
+  return timeStr;
+};
+
 export const ProfileChat = ({
   currentYear, currentMonth, currentDay, currentTime,
   isOnboarding, onUpdateProfile, onClose
@@ -45,7 +67,16 @@ export const ProfileChat = ({
     workerRef.current = new Worker(new URL('../workers/aiWorker.ts', import.meta.url), {
       type: 'module'
     });
+    workerRef.current.postMessage({ type: 'init' });
 
+    return () => {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!workerRef.current) return;
     workerRef.current.onmessage = (event) => {
       const { type, data, intent } = event.data;
 
@@ -60,14 +91,7 @@ export const ProfileChat = ({
         handleClassificationResult(event.data.result, event.data.score, event.data.inputText);
       }
     };
-
-    workerRef.current.postMessage({ type: 'init' });
-
-    return () => {
-      workerRef.current?.terminate();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
 
   useEffect(() => {
     if (isOnboarding) {
@@ -84,7 +108,7 @@ export const ProfileChat = ({
       setMessages([
         { 
           role: 'assistant', 
-          content: `現在の設定は以下の通りです。\n・生年月日: ****年${currentMonth}月${currentDay}日\n・出生時間: ${currentTime}\n\n「生年月日の変更」「時間の変更」のどちらを行いますか？\n（自然な言葉で話しかけていただければAIが解析します）`,
+          content: `現在の設定は以下の通りです。\n・生年月日: ****年${currentMonth}月${currentDay}日\n・出生時間: ${formatTimeLabel(currentTime)}\n\n「生年月日の変更」「時間の変更」のどちらを行いますか？\n（自然な言葉で話しかけていただければAIが解析します）`,
           quickReplies: ['生年月日を変更したい', '時間を変更したい']
         }
       ]);
@@ -148,7 +172,7 @@ export const ProfileChat = ({
          }, 1000);
          return;
       } else if (data.time) {
-        let responseText = `「${data.time}の刻」として設定しました！`;
+        let responseText = `時間を「${formatTimeLabel(data.time)}」として設定しました！`;
         
         if (isOnboarding) {
           responseText += "\n初期化が完了しました！右上の「閉じる」ボタンでステータス画面へお進みください。";
@@ -194,7 +218,7 @@ export const ProfileChat = ({
     const traumaYear = extractTraumaYear(whenAnswer || inputText || '', y);
     const { time, explanation } = inferTrueTimePillar(y, m, d, traumaYear, parameter as StatKey, inputText || '');
 
-    let responseText = `AIによる推論が完了しました！\n\n${explanation}\n\nこの結果から、あなたの生まれ時間は「${time}の刻」である可能性が高いと判断しました！時間として設定しました。`;
+    let responseText = `AIによる推論が完了しました！\n\n${explanation}\n\nこの結果から、あなたの生まれ時間は「${formatTimeLabel(time)}」である可能性が高いと判断しました！時間として設定しました。`;
     
     onUpdateProfile(y, m, d, time);
     
