@@ -1,42 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import type { StatKey } from './RPGStatusRadar';
-
-// 擬似乱数ジェネレーター（日付シード用）
-const pseudoRandom = (seed: number) => {
-  let x = Math.sin(seed++) * 10000;
-  return x - Math.floor(x);
-};
-
-export const getDailyBuffForDate = (date: Date): Record<StatKey, number> => {
-  const seed = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
-  const keys: StatKey[] = ['HP', 'ATK', 'DEX', 'DEF', 'MP'];
-  
-  // 1つのステータスに特化したバフを付与する（-10 〜 +20）
-  const targetKey = keys[Math.floor(pseudoRandom(seed) * keys.length)];
-  const amount = Math.floor(pseudoRandom(seed + 1) * 30) - 10;
-  
-  const effect = { HP: 0, ATK: 0, DEX: 0, DEF: 0, MP: 0 };
-  effect[targetKey] = amount;
-  return effect;
-};
-
-// 偏差値計算ユーティリティ
-const calculateDeviations = (scores: number[]) => {
-  const avg = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
-  const variance = scores.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / (scores.length || 1);
-  const stdDev = Math.sqrt(variance);
-  return scores.map(score => stdDev === 0 ? 50 : Math.round(((score - avg) / stdDev) * 10 + 50));
-};
+import { getDailyBuffForDate, getStatus, getScore, calculateDeviations } from '../utils/rpgEngine';
 
 type Props = {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
-  baseStatsData: { key: StatKey; baseValue: number }[];
   baseDiagnosisType: 'shinkyo' | 'shinjaku';
 };
 
-export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, baseStatsData, baseDiagnosisType }) => {
+export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, baseDiagnosisType }) => {
   const [viewDate, setViewDate] = useState<Date>(new Date(selectedDate));
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year'>('day');
   
@@ -61,8 +33,8 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, b
         const date = new Date(targetYear, m, d);
         const buff = getDailyBuffForDate(date);
         
-        // スコアリング: 弱点を補う(+), 長所を抑える(+)
-        const score = buff[minKey] * 2 - buff[maxKey];
+        // スコアリング: 身強/身弱の喜忌に基づく
+        const score = getScore(buff, baseDiagnosisType);
         if (score > bestScore) {
           bestScore = score;
           bestDate = date;
@@ -76,22 +48,6 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, b
   const handleNextMonth = () => onSelectDate(findBestDate(viewYear, viewMonth + 1));
   const handlePrevYear = () => onSelectDate(findBestDate(viewYear - 1, viewMonth));
   const handleNextYear = () => onSelectDate(findBestDate(viewYear + 1, viewMonth));
-  
-  // 弱点と長所を特定（バフなしのベース状態で判定）
-  let maxKey: StatKey = baseStatsData[0].key;
-  let minKey: StatKey = baseStatsData[0].key;
-  let maxVal = baseStatsData[0].baseValue;
-  let minVal = baseStatsData[0].baseValue;
-  baseStatsData.forEach(s => {
-    if (s.baseValue > maxVal) { maxVal = s.baseValue; maxKey = s.key; }
-    if (s.baseValue < minVal) { minVal = s.baseValue; minKey = s.key; }
-  });
-
-  const getStatus = (buff: Record<StatKey, number>) => {
-    if (buff[minKey] > 5 || (baseDiagnosisType === 'shinkyo' && buff[maxKey] < -5)) return 'good';
-    if (buff[maxKey] > 5 || buff[minKey] < -5) return 'bad';
-    return 'normal';
-  };
 
   // カレンダーの日付生成
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -179,7 +135,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, b
           
           const isSelected = isSameDate(date, selectedDate);
           const buff = getDailyBuffForDate(date);
-          const status = getStatus(buff);
+          const status = getStatus(buff, baseDiagnosisType);
           
           let cellColor = 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-500/50';
           let textColor = 'text-slate-400';
@@ -228,7 +184,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, b
               let badCount = 0;
               const daysInM = new Date(viewYear, i + 1, 0).getDate();
               for (let d = 1; d <= daysInM; d++) {
-                const st = getStatus(getDailyBuffForDate(new Date(viewYear, i, d)));
+                const st = getStatus(getDailyBuffForDate(new Date(viewYear, i, d)), baseDiagnosisType);
                 if (st === 'good') goodCount++;
                 if (st === 'bad') badCount++;
               }
@@ -286,7 +242,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, b
               for (let m = 0; m < 12; m++) {
                 const daysInM = new Date(y, m + 1, 0).getDate();
                 for (let d = 1; d <= daysInM; d++) {
-                  const st = getStatus(getDailyBuffForDate(new Date(y, m, d)));
+                  const st = getStatus(getDailyBuffForDate(new Date(y, m, d)), baseDiagnosisType);
                   if (st === 'good') goodCount++;
                   if (st === 'bad') badCount++;
                 }
@@ -338,11 +294,11 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDate, onSelectDate, b
       <div className="mt-6 flex flex-wrap gap-4 text-xs justify-end font-medium relative z-10">
         <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div> 
-          Good (バランス補正)
+          Good ── バランス調和
         </div>
         <div className="flex items-center gap-2 text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">
           <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></div> 
-          Bad (偏り増幅)
+          Bad ── ステータス偏重
         </div>
       </div>
     </div>

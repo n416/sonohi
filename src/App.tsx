@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Settings, MessageCircle, Sparkles, Key, CheckCircle2, Circle, AlertCircle, RefreshCw, Send, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Settings, MessageCircle, Sparkles, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-react';
 import { DiagnosisReport } from './components/DiagnosisReport';
-import { RPGStatusRadar, type TimeBuff, calculateRPGStats } from './components/RPGStatusRadar';
-import { FortuneCalendar, getDailyBuffForDate } from './components/FortuneCalendar';
-import { generateDiagnosis } from './components/DiagnosisReport';
+import { RPGStatusRadar } from './components/RPGStatusRadar';
+import { FortuneCalendar } from './components/FortuneCalendar';
+import { calculateRPGStats, getDailyBuffForDate, generateDiagnosis, type TimeBuff } from './utils/rpgEngine';
 import { StickyMiniStatus } from './components/StickyMiniStatus';
+import { AITimeInferenceChat } from './components/AITimeInferenceChat';
 
 import { calculateMeishiki, type Meishiki, type GogyoScore } from './utils/meishiki';
 
@@ -68,120 +69,7 @@ const evaluateMeishiki = (base: Meishiki, activePatchIds: string[]): Meishiki =>
 // 2. LLM推時チャット（時間逆算インターフェース）
 // ==========================================
 
-const SuijiChat = ({ apiKey, onComplete, onCancel }: { apiKey: string, onComplete: (time: string) => void, onCancel: () => void }) => {
-  const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMessages([{ 
-      role: "assistant", 
-      content: "生まれた時間が不明とのことですね。\nあなたの過去の転機（大病、転職、結婚、大きな事故など）が起きた年齢や時期について、いくつか教えていただけますか？そこから時間を推測します。" 
-    }]);
-  }, []);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages]);
-
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const systemPrompt = `あなたは四柱推命の推時専門家です。ユーザーの過去の転機（大病や転職など）をヒアリングし、12パターンの時間（子, 丑, 寅, 卯, 辰, 巳, 午, 未, 申, 酉, 戌, 亥）から最も合致する時間を特定してください。確信を持てたら、会話の最後に必ず {"determined_shi": "午"} のようなJSON形式のみを出力して終了してください。JSON以外の文字列は絶対に含めないでください。`;
-      
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "gpt-4o-mini", // プロトタイプ用軽量モデル
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...newMessages.map(m => ({ role: m.role, content: m.content }))
-          ]
-        })
-      });
-
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      
-      const reply = data.choices[0].message.content;
-      
-      const jsonMatch = reply.match(/\{[\s\S]*"determined_shi"\s*:\s*"([^"]+)"[\s\S]*\}/);
-      if (jsonMatch) {
-        onComplete(jsonMatch[1]);
-      } else {
-        setMessages([...newMessages, { role: "assistant", content: reply }]);
-      }
-    } catch (e: any) {
-      setMessages([...newMessages, { role: "assistant", content: `APIエラーが発生しました: ${e.message}` }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden h-[80vh]">
-        <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-indigo-400">
-            <MessageCircle size={20} />
-            <h3 className="font-bold">AI推時チャット（出生時間特定）</h3>
-          </div>
-          <button onClick={onCancel} className="text-slate-400 hover:text-white transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-        
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl p-4 whitespace-pre-wrap ${
-                msg.role === 'user' 
-                  ? 'bg-indigo-600 text-white rounded-tr-none' 
-                  : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'
-              }`}>
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-slate-800 text-slate-400 rounded-2xl rounded-tl-none p-4 border border-slate-700 flex items-center gap-2">
-                <RefreshCw className="animate-spin" size={16} /> 考慮中...
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 bg-slate-800 border-t border-slate-700 flex gap-2">
-          <input 
-            type="text" 
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="例：28歳の時に大きな病気をしました..."
-            className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500"
-            disabled={isLoading}
-          />
-          <button 
-            onClick={sendMessage}
-            disabled={isLoading || !input.trim()}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 rounded-xl flex items-center gap-2 transition-colors font-bold"
-          >
-            <Send size={18} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// AI推時チャットの実装は './components/AITimeInferenceChat' に分離しました。
 
 // ==========================================
 // 3. UIコンポーネント構成 (App)
@@ -197,7 +85,6 @@ const getGogyoFromKan = (kan: string): string => {
 };
 
 export default function App() {
-  const [apiKey, setApiKey] = useState("");
   const [year, setYear] = useState(1990);
   const [month, setMonth] = useState(1);
   const [day, setDay] = useState(1);
@@ -216,28 +103,54 @@ export default function App() {
     );
   };
 
+  // 日付の範囲を安全にクランプする
+  const safeYear = Math.max(1900, Math.min(2100, year || 1990));
+  const safeMonth = Math.max(1, Math.min(12, month || 1));
+  const safeDay = Math.max(1, Math.min(31, day || 1));
+
   // リアクティブな自動計算
   useEffect(() => {
-    const initial = calculateMeishiki(year, month, day, time);
-    const finalResult = evaluateMeishiki(initial, activePatches);
-    setResult(finalResult);
-  }, [year, month, day, time, activePatches]);
+    try {
+      const initial = calculateMeishiki(safeYear, safeMonth, safeDay, time);
+      const finalResult = evaluateMeishiki(initial, activePatches);
+      setResult(finalResult);
+    } catch (error) {
+      console.error('命式の計算エラー:', error);
+      // カレンダーエンジンの範囲外エラー（111月など）が起きた場合は無視する
+    }
+  }, [safeYear, safeMonth, safeDay, time, activePatches]);
 
   const baseData = useMemo(() => {
     if (!result) return null;
     const nikkanGogyo = getGogyoFromKan(result.kanchi.day.charAt(0));
     const baseStats = calculateRPGStats(result.gogyoScore, nikkanGogyo, []);
     const baseDiagnosis = generateDiagnosis(baseStats, false);
-    return { nikkanGogyo, baseStats, baseDiagnosisType: baseDiagnosis.type };
+    
+    // 現在のベース（大運＋年運＋月運まで適用した状態）
+    const baseTimeBuffs: TimeBuff[] = [
+      { layer: "大運 (10年)", name: "炎のフィールド", effect: { HP: 15, ATK: 5, DEX: 0, DEF: 0, MP: 0 } },
+      { layer: "年運 (1年)", name: "知識の雨", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 0, MP: 10 } },
+      { layer: "月運 (1ヶ月)", name: "プレッシャー", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 5, MP: 0 } }
+    ];
+    
+    const currentBaseStats = calculateRPGStats(result.gogyoScore, nikkanGogyo, baseTimeBuffs);
+    const currentBaseDiagnosis = generateDiagnosis(currentBaseStats, true);
+
+    return { 
+      nikkanGogyo, 
+      baseStats, 
+      baseDiagnosisType: baseDiagnosis.type,
+      currentBaseStats,
+      currentBaseDiagnosisType: currentBaseDiagnosis.type,
+      baseTimeBuffs
+    };
   }, [result]);
 
   const finalStatsData = useMemo(() => {
     if (!result || !baseData) return null;
     const dailyBuffEffect = getDailyBuffForDate(selectedDate);
     const currentTimeBuffs: TimeBuff[] = [
-      { layer: "大運 (10年)", name: "炎のフィールド", effect: { HP: 15, ATK: 5, DEX: 0, DEF: 0, MP: 0 } },
-      { layer: "年運 (1年)", name: "知識の雨", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 0, MP: 10 } },
-      { layer: "月運 (1ヶ月)", name: "プレッシャー", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 5, MP: 0 } },
+      ...baseData.baseTimeBuffs,
       { layer: "日運 (選択日)", name: "タイムトラベル中", effect: dailyBuffEffect }
     ];
     const finalStats = calculateRPGStats(result.gogyoScore, baseData.nikkanGogyo, currentTimeBuffs);
@@ -246,10 +159,6 @@ export default function App() {
   }, [result, baseData, selectedDate]);
 
   const startChat = () => {
-    if (!apiKey) {
-      console.log("時間が「不明」の場合、推時のためにOpenAI APIキーが必要です。");
-      return;
-    }
     setIsChatMode(true);
   };
 
@@ -275,24 +184,6 @@ export default function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-xl">
-              <h2 className="flex items-center gap-2 text-white font-bold mb-4">
-                <Key size={18} className="text-indigo-400" />
-                OpenAI API設定
-              </h2>
-              <input 
-                type="password" 
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-..."
-                className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors text-sm"
-              />
-              <p className="text-xs text-slate-500 mt-2 flex items-start gap-1">
-                <AlertCircle size={14} className="shrink-0" />
-                推時（時間特定）チャットを利用する場合のみ必要です。計算自体はローカルで行われます。
-              </p>
-            </div>
-
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-xl">
               <h2 className="flex items-center gap-2 text-white font-bold mb-4">
                 <Settings size={18} className="text-purple-400" />
@@ -355,8 +246,7 @@ export default function App() {
               <FortuneCalendar 
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
-                baseStatsData={baseData.baseStats}
-                baseDiagnosisType={baseData.baseDiagnosisType}
+                baseDiagnosisType={baseData.currentBaseDiagnosisType}
               />
             )}
           </div>
@@ -491,13 +381,15 @@ export default function App() {
       </div>
 
       {isChatMode && (
-        <SuijiChat 
-          apiKey={apiKey} 
-          onComplete={(determinedTime) => {
+        <AITimeInferenceChat 
+          birthYear={safeYear}
+          birthMonth={safeMonth}
+          birthDay={safeDay}
+          onComplete={(inferredTime) => {
+            setTime(inferredTime);
             setIsChatMode(false);
-            setTime(determinedTime);
-          }}
-          onCancel={() => setIsChatMode(false)}
+          }} 
+          onCancel={() => setIsChatMode(false)} 
         />
       )}
     </div>

@@ -2,13 +2,15 @@ import React from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Sparkles } from 'lucide-react';
 
-export type GogyoScore = { wood: number; fire: number; earth: number; metal: number; water: number };
+import { 
+  type GogyoScore, 
+  type TimeBuff, 
+  type StatKey, 
+  statsKeys, 
+  calculateRPGStats 
+} from '../utils/rpgEngine';
 
-export type TimeBuff = {
-  layer: string;
-  name: string;
-  effect: Record<StatKey, number>;
-};
+export type { GogyoScore, TimeBuff, StatKey };
 
 type Props = {
   scores: GogyoScore;
@@ -17,47 +19,12 @@ type Props = {
   timeBuffs?: TimeBuff[];
 };
 
-const gogyoArray = ['木', '火', '土', '金', '水'];
-
 const classNames: Record<string, string> = {
   '木': '森の賢者',
   '火': '炎の魔術師',
   '土': '大地の守護者',
   '金': '鋼の剣士',
   '水': '氷の導き手'
-};
-
-const statsLabels = [
-  'HP / 基本体力 (比劫)',
-  'ATK / 攻撃力 (食傷)',
-  'DEX / 獲得力 (財星)',
-  'DEF / 耐久力 (官殺)',
-  'MP / 魔力 (印星)'
-];
-
-export const statsKeys = ['HP', 'ATK', 'DEX', 'DEF', 'MP'] as const;
-export type StatKey = typeof statsKeys[number];
-
-export const calculateRPGStats = (scores: GogyoScore, nikkanGogyo: string, buffs: TimeBuff[] = []) => {
-  const baseIndex = gogyoArray.indexOf(nikkanGogyo);
-  const scoreArray = [scores.wood, scores.fire, scores.earth, scores.metal, scores.water];
-  
-  const data = statsLabels.map((label, idx) => {
-    // baseIndexから順に時計回りで属性を割り当てる
-    const scoreIndex = (baseIndex + idx) % 5;
-    const key = statsKeys[idx];
-    const baseValue = scoreArray[scoreIndex];
-    const buffAmount = buffs.reduce((sum, buff) => sum + (buff.effect[key] || 0), 0);
-    return {
-      key,
-      subject: label,
-      baseValue: baseValue,
-      currentValue: baseValue + buffAmount,
-      fullMark: 100 + buffAmount,
-    };
-  });
-
-  return data;
 };
 
 export const RPGStatusRadar: React.FC<Props> = ({ scores, nikkanGogyo, nikkanKan, timeBuffs = [] }) => {

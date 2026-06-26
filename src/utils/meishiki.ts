@@ -1,4 +1,4 @@
-import { Solar, Lunar } from 'lunar-javascript';
+import { Solar } from 'lunar-javascript';
 
 // 五行のスコア用型
 export type GogyoScore = {
@@ -26,7 +26,7 @@ export type Meishiki = {
 };
 
 // 天干の五行属性マップ
-const tenkanMap: Record<string, keyof GogyoScore> = {
+export const tenkanMap: Record<string, keyof GogyoScore> = {
   '甲': 'wood', '乙': 'wood',
   '丙': 'fire', '丁': 'fire',
   '戊': 'earth', '己': 'earth',
@@ -36,7 +36,7 @@ const tenkanMap: Record<string, keyof GogyoScore> = {
 
 // 地支の蔵干割合（パーセンテージ）マップ
 // 余気・中気・本気を含めた各五行への影響度（合計1.0）
-const zokanMap: Record<string, Partial<Record<keyof GogyoScore, number>>> = {
+export const zokanMap: Record<string, Partial<Record<keyof GogyoScore, number>>> = {
   '子': { water: 1.0 },
   '丑': { water: 0.3, metal: 0.2, earth: 0.5 },
   '寅': { earth: 0.3, fire: 0.3, wood: 0.4 },
