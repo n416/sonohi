@@ -416,6 +416,15 @@ export default function App() {
     }
   };
 
+  const handleClearData = () => {
+    const keysToRemove = [
+      'sonohi_year', 'sonohi_month', 'sonohi_day', 'sonohi_time',
+      'sonohi_gender', 'sonohi_show_romance', 'sonohi_patches', 'sonohi_hide_splash'
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    window.location.reload();
+  };
+
   const safeYear = Math.max(1900, Math.min(2100, year || 1990));
   const safeMonth = Math.max(1, Math.min(12, month || 1));
   const safeDay = Math.max(1, Math.min(31, day || 1));
@@ -788,6 +797,7 @@ export default function App() {
           currentTime={time}
           isOnboarding={isOnboarding}
           onUpdateProfile={handleUpdateProfile}
+          onClearData={handleClearData}
           onClose={() => {
             setIsSystemChatOpen(false);
             if (isOnboarding) setIsOnboarding(false);
@@ -884,7 +894,7 @@ export default function App() {
       )}
 
       {isSplashOpen && (
-        <SplashModal onClose={() => setIsSplashOpen(false)} />
+        <SplashModal onClose={() => setIsSplashOpen(false)} onClearData={handleClearData} />
       )}
 
     </div>

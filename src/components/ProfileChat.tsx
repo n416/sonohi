@@ -15,6 +15,7 @@ interface ProfileChatProps {
   onUpdateProfile: (year: number, month: number, day: number, time: string, patches: string[]) => void;
   onOpenTimeInference?: () => void; // 削除予定だが互換性のため残す
   onClose: () => void;
+  onClearData?: () => void;
 }
 
 type Message = {
@@ -49,12 +50,13 @@ const formatTimeLabel = (timeStr: string) => {
 
 export const ProfileChat = ({
   currentYear, currentMonth, currentDay, currentTime,
-  isOnboarding, onUpdateProfile, onClose
+  isOnboarding, onUpdateProfile, onClose, onClearData
 }: ProfileChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [whenAnswer, setWhenAnswer] = useState('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
   const [tempDate, setTempDate] = useState<{y: number, m: number, d: number} | null>(null);
   const savedTimeRef = useRef<string>('');
@@ -577,16 +579,32 @@ export const ProfileChat = ({
               プロフィール管理 <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30">AI解析</span>
             </h3>
           </div>
-          {!isOnboarding && (
-            <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-slate-700">
-              <X size={20} />
-            </button>
-          )}
-          {isOnboarding && tempDate && phase === 'idle' && (
-             <button onClick={onClose} className="text-indigo-300 hover:text-white transition-colors text-xs font-bold bg-indigo-900/50 hover:bg-indigo-600 px-4 py-1.5 rounded-full border border-indigo-500/50">
-               完了して閉じる
-             </button>
-          )}
+          
+          <div className="flex items-center gap-1">
+            {!isOnboarding && onClearData && (
+              <div className="flex items-center gap-1 bg-slate-900/50 rounded-full px-1 py-0.5 border border-slate-700/50 mr-1 md:mr-2">
+                {showClearConfirm ? (
+                  <>
+                    <button onClick={() => setShowClearConfirm(false)} className="text-[10px] text-slate-400 hover:text-white px-2 py-1 transition-colors">キャンセル</button>
+                    <button onClick={onClearData} className="text-[10px] text-red-400 hover:text-red-300 font-bold px-2 py-1 bg-red-500/10 rounded transition-colors">本当に初期化</button>
+                  </>
+                ) : (
+                  <button onClick={() => setShowClearConfirm(true)} className="text-[10px] text-slate-500 hover:text-red-400 px-2 py-1 transition-colors">データを初期化</button>
+                )}
+              </div>
+            )}
+            
+            {!isOnboarding && (
+              <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-slate-700">
+                <X size={20} />
+              </button>
+            )}
+            {isOnboarding && tempDate && phase === 'idle' && (
+               <button onClick={onClose} className="text-indigo-300 hover:text-white transition-colors text-xs font-bold bg-indigo-900/50 hover:bg-indigo-600 px-4 py-1.5 rounded-full border border-indigo-500/50">
+                 完了して閉じる
+               </button>
+            )}
+          </div>
         </div>
         
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-gradient-to-b from-slate-900 to-slate-950">

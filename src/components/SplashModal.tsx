@@ -3,10 +3,12 @@ import { Sparkles, X } from 'lucide-react';
 
 interface SplashModalProps {
   onClose: () => void;
+  onClearData: () => void;
 }
 
-export function SplashModal({ onClose }: SplashModalProps) {
+export function SplashModal({ onClose, onClearData }: SplashModalProps) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleClose = () => {
     if (dontShowAgain) {
@@ -71,18 +73,32 @@ export function SplashModal({ onClose }: SplashModalProps) {
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 flex flex-col sm:flex-row items-center justify-between gap-4 z-10 shrink-0">
-          <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer hover:text-slate-300 transition-colors">
-            <input
-              type="checkbox"
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-900"
-            />
-            次から表示しない
-          </label>
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer hover:text-slate-300 transition-colors">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-900"
+              />
+              次から表示しない
+            </label>
+            
+            <div className="flex items-center gap-2">
+              {showClearConfirm ? (
+                <>
+                  <button onClick={() => setShowClearConfirm(false)} className="text-xs text-slate-400 hover:text-white px-2 py-1">キャンセル</button>
+                  <button onClick={onClearData} className="text-xs text-red-400 hover:text-red-300 font-bold px-2 py-1 bg-red-500/10 rounded transition-colors">本当に初期化する</button>
+                </>
+              ) : (
+                <button onClick={() => setShowClearConfirm(true)} className="text-xs text-slate-500 hover:text-red-400 px-2 py-1 transition-colors">全データを初期化</button>
+              )}
+            </div>
+          </div>
+          
           <button
             onClick={handleClose}
-            className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20"
+            className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20 shrink-0"
           >
             はじめる
           </button>
