@@ -91,10 +91,10 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDates, onSelectDate, 
   };
 
   return (
-    <div className="bg-slate-900/80 border border-indigo-500/30 rounded-3xl p-3 md:p-6 shadow-2xl relative overflow-hidden group">
+    <div className="bg-slate-900/80 border border-indigo-500/30 rounded-3xl p-2 md:p-4 shadow-2xl relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-32 h-32 md:w-48 md:h-48 bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none transition-all duration-1000 group-hover:bg-indigo-500/20"></div>
 
-      <div className="flex flex-col items-center gap-3 mb-3 pb-3 relative z-10">
+      <div className="flex flex-col items-center gap-2 mb-2 pb-2 relative z-10">
         <div className="flex items-center justify-center gap-1 w-full">
           {viewMode === 'day' && (
             <button onClick={handlePrevYear} className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors shrink-0" title="前年">
@@ -145,7 +145,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDates, onSelectDate, 
 
           <div className="grid grid-cols-7 gap-1 relative z-10">
             {days.map((date, idx) => {
-              if (!date) return <div key={idx} className="h-10 md:h-14"></div>;
+              if (!date) return <div key={idx} className="h-8 md:h-12"></div>;
 
               const selectedIndex = selectedDates.findIndex(d => isSameDate(date, d));
               const isSelected = selectedIndex !== -1;
@@ -172,7 +172,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDates, onSelectDate, 
                 <button
                   key={idx}
                   onClick={() => onSelectDate(date)}
-                  className={`h-10 md:h-14 rounded-lg border flex flex-col items-center justify-center transition-all duration-300 transform hover:scale-105 ${cellColor} ${ringClass}`}
+                  className={`h-8 md:h-12 rounded-lg border flex flex-col items-center justify-center transition-all duration-300 transform hover:scale-105 ${cellColor} ${ringClass}`}
                 >
                   <span className={`text-xs md:text-sm transition-transform ${textColor}`}>{date.getDate()}</span>
 
@@ -202,7 +202,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDates, onSelectDate, 
                   onSelectDate(findBestDate(viewYear, i));
                   setViewMode('day');
                 }}
-                className={`h-12 rounded-xl border flex flex-col items-center justify-center font-bold transition-all hover:scale-105 ${isSelected ? 'bg-indigo-500/30 border-indigo-500/50 text-white' : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-700/50'
+                className={`h-10 md:h-12 rounded-xl border flex flex-col items-center justify-center font-bold transition-all hover:scale-105 ${isSelected ? 'bg-indigo-500/30 border-indigo-500/50 text-white' : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-700/50'
                   }`}
               >
                 <span className="text-xs md:text-sm">{i + 1}月</span>
@@ -224,7 +224,7 @@ export const FortuneCalendar: React.FC<Props> = ({ selectedDates, onSelectDate, 
                   onSelectDate(findBestDate(y));
                   setViewMode('month');
                 }}
-                className={`h-12 rounded-xl border flex flex-col items-center justify-center font-bold transition-all hover:scale-105 ${isSelected ? 'bg-indigo-500/30 border-indigo-500/50 text-white' : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-700/50'
+                className={`h-10 md:h-12 rounded-xl border flex flex-col items-center justify-center font-bold transition-all hover:scale-105 ${isSelected ? 'bg-indigo-500/30 border-indigo-500/50 text-white' : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-700/50'
                   }`}
               >
                 <span className="text-xs md:text-sm">{y}年</span>

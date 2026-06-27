@@ -577,7 +577,7 @@ export default function App() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
 
         {/* 上半分/左ペイン：カレンダー */}
-        <div className="w-full lg:w-5/12 h-[50%] lg:h-full flex flex-col bg-slate-950/50 relative">
+        <div className="w-full lg:w-5/12 flex-none lg:flex-1 lg:h-full flex flex-col bg-slate-950/50 relative">
 
           {/* コントロール群 */}
           <div className="flex-none p-2 md:p-4 pb-1 md:pb-2 z-30 flex flex-wrap items-center justify-between gap-2">
@@ -616,7 +616,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2">
+          <div className="px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2 lg:flex-1 lg:overflow-y-auto custom-scrollbar">
             {result && baseData ? (
               <div className="space-y-4">
                 <FortuneCalendar
@@ -675,7 +675,7 @@ export default function App() {
         </div>
 
         {/* 下半分/右ペイン：鑑定結果 */}
-        <div className="w-full lg:w-7/12 h-[50%] lg:h-full overflow-y-auto custom-scrollbar bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 shadow-[0_-15px_40px_rgba(0,0,0,0.5)] lg:shadow-none z-20 relative">
+        <div className="w-full lg:w-7/12 flex-1 lg:h-full overflow-y-auto custom-scrollbar bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 shadow-[0_-15px_40px_rgba(0,0,0,0.5)] lg:shadow-none z-20 relative">
 
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full pointer-events-none"></div>
 
