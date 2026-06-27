@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Send, X, Loader2 } from 'lucide-react';
-import { inferTrueTimePillar, extractTraumaYear } from '../utils/suijiEngine';
+import { inferTrueTimePillar, extractTraumaYear, getYearlyBuffScore } from '../utils/suijiEngine';
+import { calculateCalibrationYears, getNextPatchState, shouldAcceptNewState, type CalibrationYears } from '../utils/calibrationEngine';
+import { calculateMeishiki } from '../utils/meishiki';
+import { calculateRPGStats } from '../utils/rpgEngine';
 import { type StatKey } from './RPGStatusRadar';
 
 interface ProfileChatProps {
@@ -9,7 +12,7 @@ interface ProfileChatProps {
   currentDay: number;
   currentTime: string;
   isOnboarding: boolean;
-  onUpdateProfile: (year: number, month: number, day: number, time: string) => void;
+  onUpdateProfile: (year: number, month: number, day: number, time: string, patches: string[]) => void;
   onOpenTimeInference?: () => void; // 削除予定だが互換性のため残す
   onClose: () => void;
 }
@@ -20,7 +23,7 @@ type Message = {
   quickReplies?: string[];
 };
 
-type ChatPhase = 'idle' | 'ask_date' | 'ask_time' | 'inference_when' | 'inference_what';
+type ChatPhase = 'idle' | 'ask_date' | 'ask_time' | 'inference_when' | 'inference_what' | 'calibration';
 
 const formatTimeLabel = (timeStr: string) => {
   const timeMap: Record<string, string> = {
@@ -54,6 +57,15 @@ export const ProfileChat = ({
   const [whenAnswer, setWhenAnswer] = useState('');
   
   const [tempDate, setTempDate] = useState<{y: number, m: number, d: number} | null>(null);
+  const savedTimeRef = useRef<string>('');
+
+  // キャリブレーション用ステート
+  const [calibPatches, setCalibPatches] = useState<string[]>([]);
+  const [calibTemp, setCalibTemp] = useState<number>(1.0);
+  const [calibBestScore, setCalibBestScore] = useState<number>(-1);
+  const [calibYears, setCalibYears] = useState<CalibrationYears | null>(null);
+  const [calibStep, setCalibStep] = useState<number>(0);
+  const [calibAnswers, setCalibAnswers] = useState<Record<string, { year: number, answer: boolean }>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -100,7 +112,6 @@ export const ProfileChat = ({
         { 
           role: 'assistant', 
           content: 'こんにちは！四柱推命RPGの世界へようこそ。\nまずはあなたの生年月日を教えてください。\n（例：1995年10月5日、1990/01/01 など）',
-          quickReplies: ['1990年1月1日', '2000/04/01']
         }
       ]);
     } else {
@@ -108,7 +119,7 @@ export const ProfileChat = ({
       setMessages([
         { 
           role: 'assistant', 
-          content: `現在の設定は以下の通りです。\n・生年月日: ****年${currentMonth}月${currentDay}日\n・出生時間: ${formatTimeLabel(currentTime)}\n\n「生年月日の変更」「時間の変更」のどちらを行いますか？\n（自然な言葉で話しかけていただければAIが解析します）`,
+          content: `現在の設定は以下の通りです。\n・生年月日: ****年${currentMonth}月${currentDay}日\n・出生時間: ${formatTimeLabel(currentTime)}\n\n「生年月日を変更」「時間を変更」のどれを行いますか？`,
           quickReplies: ['生年月日を変更したい', '時間を変更したい']
         }
       ]);
@@ -134,9 +145,7 @@ export const ProfileChat = ({
         setPhase('ask_time');
         addAssistantMessage(`ありがとうございます！「****年${data.month}月${data.day}日」ですね。\n\n最後に、生まれた時間はわかりますか？\n（例：14時30分、わからない場合は「不明」で構いません）`, ['14時ごろです', '不明です', 'AIに推測してほしい']);
       } else {
-        onUpdateProfile(data.year, data.month, data.day, currentTime);
-        setPhase('idle');
-        addAssistantMessage(`生年月日を「****年${data.month}月${data.day}日」に変更しました！他に何かありますか？`, ['閉じる']);
+        startCalibration(data.year, data.month, data.day, currentTime);
       }
       return;
     }
@@ -172,20 +181,17 @@ export const ProfileChat = ({
          }, 1000);
          return;
       } else if (data.time) {
-        let responseText = `時間を「${formatTimeLabel(data.time)}」として設定しました！`;
+        savedTimeRef.current = data.time;
+        const y = tempDate ? tempDate.y : currentYear;
+        const m = tempDate ? tempDate.m : currentMonth;
+        const d = tempDate ? tempDate.d : currentDay;
         
-        if (isOnboarding) {
-          responseText += "\n初期化が完了しました！右上の「閉じる」ボタンでステータス画面へお進みください。";
-          onUpdateProfile(tempDate!.y, tempDate!.m, tempDate!.d, data.time);
-        } else {
-          responseText += "\n他に何か変更しますか？";
-          const y = tempDate ? tempDate.y : currentYear;
-          const m = tempDate ? tempDate.m : currentMonth;
-          const d = tempDate ? tempDate.d : currentDay;
-          onUpdateProfile(y, m, d, data.time);
-        }
-        setPhase('idle');
-        addAssistantMessage(responseText, isOnboarding ? ['閉じる'] : ['閉じる', '生年月日を変更', '時間を変更']);
+        let responseText = `時間を「${formatTimeLabel(data.time)}」として設定しました！`;
+        addAssistantMessage(responseText);
+        
+        setTimeout(() => {
+          startCalibration(y, m, d, data.time!);
+        }, 500);
         return;
       } else {
          if (phase === 'ask_time') {
@@ -217,25 +223,253 @@ export const ProfileChat = ({
 
     const traumaYear = extractTraumaYear(whenAnswer || inputText || '', y);
     const { time, explanation } = inferTrueTimePillar(y, m, d, traumaYear, parameter as StatKey, inputText || '');
+    savedTimeRef.current = time;
 
-    let responseText = `AIによる推論が完了しました！\n\n${explanation}\n\nこの結果から、あなたの生まれ時間は「${formatTimeLabel(time)}」である可能性が高いと判断しました！時間として設定しました。`;
+    let responseText = `AIによる推論が完了しました！\n\n${explanation}\n\nこの結果から、あなたの生まれ時間は「${formatTimeLabel(time)}」である可能性が高いと判断しました！時間として設定します。`;
+    addAssistantMessage(responseText);
     
-    onUpdateProfile(y, m, d, time);
-    
-    if (isOnboarding) {
-       responseText += "\n\n初期化が完了しました！右上の「完了して閉じる」ボタンでステータス画面へお進みください。";
-    } else {
-       responseText += "\n\n他に何か変更しますか？";
-    }
-    
-    setPhase('idle');
-    addAssistantMessage(responseText, isOnboarding ? [] : ['閉じる', '生年月日を変更', '時間を変更']);
+    setTimeout(() => {
+      startCalibration(y, m, d, time);
+    }, 2000);
   };
 
-  const sendMessage = () => {
-    if (!input.trim() || isProcessing) return;
+  const CALIB_QUESTIONS = [
+    { key: 'ATK', text: (age: number) => age <= 22 ? `${age}歳の頃、部活や勉強、進路などで大きな勝負に出たり、新しいことに挑戦しませんでしたか？` : `${age}歳の頃、仕事やプライベートで何か大きな勝負に出たり、独立・転職など新しい挑戦をしませんでしたか？` },
+    { key: 'DEF', text: (age: number) => age <= 22 ? `${age}歳の頃は、周りに合わせて自分を押し殺したり、じっと耐え忍ぶような時期ではありませんでしたか？` : `${age}歳の頃は、自分の意見を押し殺してじっと耐え忍ぶような、我慢の時期ではありませんでしたか？` },
+    { key: 'HP', text: (age: number) => age <= 22 ? `${age}歳の頃、勉強や部活、人間関係で心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？` : `${age}歳の頃、心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？` },
+    { key: 'CHU', text: (age: number) => age <= 22 ? `${age}歳の頃、親しい友人との突然の別れや、学校など環境の予期せぬ激変がありませんでしたか？` : `${age}歳の頃、親しい人との突然の別れや、予期せぬ環境の激変がありませんでしたか？` }
+  ];
+
+  const startCalibration = (y: number, m: number, d: number, t: string) => {
+    setPhase('calibration');
+    setCalibStep(0);
+    setCalibPatches([]);
+    setCalibTemp(1.0);
+    setCalibBestScore(-1);
+    setCalibAnswers({});
     
-    const text = input.trim();
+    const years = calculateCalibrationYears(y, m, d, t, []);
+    setCalibYears(years);
+  
+    addAssistantMessage("最後に、AIの精度を高めるため「パッチキャリブレーション」を行います。過去の出来事について4つ質問させてください。");
+    
+    setTimeout(() => {
+      askCalibrationQuestion(0, years, {});
+    }, 1000);
+  };
+
+  const askCalibrationQuestion = (step: number, years: CalibrationYears, answers: typeof calibAnswers) => {
+    const q = CALIB_QUESTIONS[step];
+    
+    let targetYear = 0;
+    if (q.key === 'ATK') targetYear = years.atkYear;
+    if (q.key === 'DEF') targetYear = years.defYear;
+    if (q.key === 'HP') targetYear = years.hpYear;
+    if (q.key === 'CHU') targetYear = years.chuYear;
+  
+    if (targetYear === 0) {
+      handleCalibrationAnswer(true, step, years, answers, true);
+      return;
+    }
+  
+    const birthYear = tempDate ? tempDate.y : currentYear;
+    const age = targetYear - birthYear;
+  
+    if (answers[q.key] && answers[q.key].year === targetYear) {
+      handleCalibrationAnswer(answers[q.key].answer, step, years, answers, true);
+      return;
+    }
+  
+    setCalibStep(step);
+    addAssistantMessage(q.text(age), ['Yes', 'No']);
+  };
+
+  const handleCalibrationAnswer = (isYes: boolean, step: number, years: CalibrationYears, currentAnswers: typeof calibAnswers, isAutoSkip: boolean) => {
+    const q = CALIB_QUESTIONS[step];
+    let targetYear = 0;
+    if (q.key === 'ATK') targetYear = years.atkYear;
+    if (q.key === 'DEF') targetYear = years.defYear;
+    if (q.key === 'HP') targetYear = years.hpYear;
+    if (q.key === 'CHU') targetYear = years.chuYear;
+  
+    const newAnswers = { ...currentAnswers };
+    if (targetYear !== 0) {
+      newAnswers[q.key] = { year: targetYear, answer: isYes };
+    }
+    setCalibAnswers(newAnswers);
+  
+    if (step < 3) {
+      if (!isAutoSkip) {
+        setTimeout(() => askCalibrationQuestion(step + 1, years, newAnswers), 500);
+      } else {
+        askCalibrationQuestion(step + 1, years, newAnswers);
+      }
+    } else {
+      evaluateCalibrationRound(newAnswers);
+    }
+  };
+
+  const completeCalibration = () => {
+    const y = tempDate ? tempDate.y : currentYear;
+    const m = tempDate ? tempDate.m : currentMonth;
+    const d = tempDate ? tempDate.d : currentDay;
+    const t = savedTimeRef.current;
+    
+    let calcDay = d;
+    if (calibPatches.includes('PATCH_YASHIJI') && t === '子') {
+      const dateObj = new Date(y, m - 1, d);
+      dateObj.setDate(dateObj.getDate() + 1);
+      calcDay = dateObj.getDate();
+    }
+    const meishiki = calculateMeishiki(y, m, calcDay, t);
+    const yearlyBuff = getYearlyBuffScore(currentYear);
+    
+    if (calibPatches.includes('PATCH_KUBOU')) {
+      Object.keys(yearlyBuff).forEach(k => {
+        yearlyBuff[k as keyof typeof yearlyBuff] *= 0.5;
+      });
+    }
+
+    const buffedScore = {
+      wood: meishiki.gogyoScore.wood + yearlyBuff.wood,
+      fire: meishiki.gogyoScore.fire + yearlyBuff.fire,
+      earth: meishiki.gogyoScore.earth + yearlyBuff.earth,
+      metal: meishiki.gogyoScore.metal + yearlyBuff.metal,
+      water: meishiki.gogyoScore.water + yearlyBuff.water,
+    };
+
+    const stats = calculateRPGStats(buffedScore, meishiki.nikkanGogyo, []);
+    
+    const topStats = stats
+      .filter(s => ['ATK', 'DEF', 'HP'].includes(s.key))
+      .sort((a, b) => b.currentValue - a.currentValue)
+      .slice(0, 2);
+
+    const getFeedbackText = (key: string, targetYear: number, birthYear: number) => {
+      const age = targetYear - birthYear;
+      if (key === 'ATK') return age <= 22 ? `${age}歳の頃の「部活や進路での大きな挑戦」` : `${age}歳の頃の「仕事やプライベートでの大きな勝負」`;
+      if (key === 'DEF') return age <= 22 ? `${age}歳の頃の「周りに合わせて自分を押し殺した忍耐」` : `${age}歳の頃の「自分の意見を押し殺してじっと耐え忍んだ経験」`;
+      if (key === 'HP') return age <= 22 ? `${age}歳の頃の「人間関係や勉強で燃え尽きそうになった経験」` : `${age}歳の頃の「エネルギーがすり減って燃え尽きそうになった経験」`;
+      return '';
+    };
+
+    let feedback = `キャリブレーションが完了しました！AIがあなたの運勢の波を完全に同調させました。\n\n`;
+    
+    if (calibYears) {
+      feedback += `ちなみに、現在のあなたのステータス傾向から過去の特異点を振り返ると、\n`;
+      topStats.forEach(stat => {
+        let yTarget = 0;
+        if (stat.key === 'ATK') yTarget = calibYears.atkYear;
+        if (stat.key === 'DEF') yTarget = calibYears.defYear;
+        if (stat.key === 'HP') yTarget = calibYears.hpYear;
+        
+        if (yTarget > 0) {
+          feedback += `・${getFeedbackText(stat.key, yTarget, y)}\n`;
+        }
+      });
+      feedback += `\nこれらの経験が、現在のあなたの強み（${topStats.map(s => s.subject).join('、')}）を形成する重要なベースになっています。\n\n`;
+    }
+    
+    feedback += `右上の「完了して閉じる」ボタンでステータス画面へお進みください。`;
+
+    addAssistantMessage(feedback, ['閉じる']);
+    onUpdateProfile(y, m, d, savedTimeRef.current, calibPatches);
+  };
+
+  const evaluateCalibrationRound = (finalAnswers: typeof calibAnswers) => {
+    let score = 0;
+    Object.values(finalAnswers).forEach(a => {
+      if (a.answer) score++;
+    });
+  
+    if (score === 4) {
+      completeCalibration();
+      return;
+    }
+
+    let currentTemp = calibTemp;
+    let currentBestScore = calibBestScore;
+    let currentPatches = calibPatches;
+    let newYears: CalibrationYears | null = null;
+    const currentAnswers = finalAnswers;
+  
+    if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
+      currentBestScore = score;
+      setCalibBestScore(score);
+    }
+
+    const y = tempDate ? tempDate.y : currentYear;
+    const m = tempDate ? tempDate.m : currentMonth;
+    const d = tempDate ? tempDate.d : currentDay;
+
+    let needNewQuestion = false;
+    let loopCount = 0;
+
+    // 新しい質問（未回答の年）が発生する状態を引くまで裏で焼きなましを進行させる
+    while (currentTemp >= 0.1 && score < 4 && loopCount < 50) {
+      loopCount++;
+      const nextPatches = getNextPatchState(currentPatches);
+      const nextYears = calculateCalibrationYears(y, m, d, savedTimeRef.current, nextPatches);
+      
+      const targetYears = {
+        ATK: nextYears.atkYear,
+        DEF: nextYears.defYear,
+        HP: nextYears.hpYear,
+        CHU: nextYears.chuYear
+      };
+
+      let hasNewQuestion = false;
+      let nextScore = 0;
+      
+      for (const key of ['ATK', 'DEF', 'HP', 'CHU'] as const) {
+        // ts-ignore は使わず、型安全にアクセス
+        const k = key as keyof typeof targetYears;
+        if (targetYears[k] === 0) {
+          nextScore++; 
+        } else if (currentAnswers[k] && currentAnswers[k].year === targetYears[k]) {
+          if (currentAnswers[k].answer) nextScore++;
+        } else {
+          hasNewQuestion = true;
+        }
+      }
+
+      if (hasNewQuestion) {
+        needNewQuestion = true;
+        currentPatches = nextPatches;
+        currentTemp = currentTemp * 0.8;
+        newYears = nextYears;
+        break;
+      } else {
+        score = nextScore;
+        if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
+          currentBestScore = score;
+          setCalibBestScore(score);
+        }
+        currentPatches = nextPatches;
+        currentTemp = currentTemp * 0.8;
+      }
+    }
+
+    setCalibPatches(currentPatches);
+    setCalibTemp(currentTemp);
+
+    if (score === 4 || currentTemp < 0.1 || !needNewQuestion || !newYears) {
+      completeCalibration();
+      return;
+    }
+  
+    setCalibYears(newYears);
+    addAssistantMessage("なるほど...少し視点を変えて、再計算してみます。");
+    setTimeout(() => {
+      askCalibrationQuestion(0, newYears, currentAnswers);
+    }, 1000);
+  };
+
+  const sendMessage = (overrideText?: string) => {
+    // イベントオブジェクトが渡された場合は無視する
+    const textStr = typeof overrideText === 'string' ? overrideText : input;
+    const text = textStr.trim();
+    if (!text || isProcessing) return;
 
     if (text === '閉じる') {
       onClose();
@@ -286,6 +520,23 @@ export const ProfileChat = ({
       return;
     }
     
+    if (phase === 'calibration') {
+      const isYes = text.toLowerCase() === 'yes' || text === 'はい';
+      const isNo = text.toLowerCase() === 'no' || text === 'いいえ';
+      
+      if (!isYes && !isNo) {
+        setMessages(prev => [...prev, { role: 'user', content: text }]);
+        setInput('');
+        addAssistantMessage("「Yes」か「No」でお答えください。", ['Yes', 'No']);
+        return;
+      }
+      
+      setMessages(prev => [...prev, { role: 'user', content: text }]);
+      setInput('');
+      handleCalibrationAnswer(isYes, calibStep, calibYears!, calibAnswers, false);
+      return;
+    }
+
     // 強制モード切り替え（クイックリプライ等からの即時処理）
     if (text === '生年月日を変更' || text === '生年月日を変更したい') {
       setPhase('ask_date');
@@ -380,13 +631,7 @@ export const ProfileChat = ({
                 <button
                   key={i}
                   disabled={!isWorkerReady || isProcessing}
-                  onClick={() => {
-                    setInput(reply);
-                    setTimeout(() => {
-                      const btn = document.getElementById('system-send-btn');
-                      if (btn) btn.click();
-                    }, 0);
-                  }}
+                  onClick={() => sendMessage(reply)}
                   className="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 text-slate-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-800 disabled:hover:border-slate-700 disabled:hover:text-slate-300 text-sm px-4 py-2 rounded-full transition-colors shadow-sm"
                 >
                   {reply}
@@ -408,6 +653,7 @@ export const ProfileChat = ({
               phase === 'ask_time' ? "例：夕方の16時くらい" : 
               phase === 'inference_when' ? "例：2018年、あるいは25歳の時" :
               phase === 'inference_what' ? "例：人間関係でトラブルがあった" :
+              phase === 'calibration' ? "Yes または No" :
               "生年月日や時間を入力"
             }
             className="flex-1 bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
@@ -415,7 +661,7 @@ export const ProfileChat = ({
           />
           <button 
             id="system-send-btn"
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || !isWorkerReady || isProcessing}
             className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 rounded-xl flex items-center gap-2 transition-colors font-bold shadow-[0_0_10px_rgba(79,70,229,0.3)] hover:shadow-[0_0_15px_rgba(79,70,229,0.5)]"
           >

@@ -13,7 +13,7 @@ export type TimeBuff = {
 
 export type DiagnosisType = 'shinkyo' | 'shinjaku';
 
-const gogyoArray = ['木', '火', '土', '金', '水'];
+
 const statsLabels = [
   'HP / 基本体力 (比劫)',
   'ATK / 攻撃力 (食傷)',
@@ -23,8 +23,16 @@ const statsLabels = [
 ];
 
 // --- RPGStatusRadar から移動 ---
+const gogyoArrayJA = ['木', '火', '土', '金', '水'];
+const gogyoArrayEN = ['wood', 'fire', 'earth', 'metal', 'water'];
+
 export const calculateRPGStats = (scores: GogyoScore, nikkanGogyo: string, buffs: TimeBuff[] = []) => {
-  const baseIndex = gogyoArray.indexOf(nikkanGogyo);
+  let baseIndex = gogyoArrayJA.indexOf(nikkanGogyo);
+  if (baseIndex === -1) {
+    baseIndex = gogyoArrayEN.indexOf(nikkanGogyo);
+  }
+  if (baseIndex === -1) baseIndex = 0; // フォールバック
+
   const scoreArray = [scores.wood, scores.fire, scores.earth, scores.metal, scores.water];
   
   const data = statsLabels.map((label, idx) => {

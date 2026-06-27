@@ -10,6 +10,7 @@ import { SettingsDrawer } from './components/SettingsDrawer';
 import { calculateMeishiki, type Meishiki, type GogyoScore } from './utils/meishiki';
 import { CharacterProfileModal } from './components/CharacterProfileModal';
 import { DailyAdviceModal } from './components/DailyAdviceModal';
+import { FuturePredictionModal } from './components/FuturePredictionModal';
 
 // ==========================================
 // 1. コア演算エンジン（パッチ処理ロジック）
@@ -353,6 +354,7 @@ export default function App() {
   const [month, setMonth] = useState(() => Number(localStorage.getItem('sonohi_month')) || 1);
   const [day, setDay] = useState(() => Number(localStorage.getItem('sonohi_day')) || 1);
   const [time, setTime] = useState(() => localStorage.getItem('sonohi_time') || "不明");
+  const [gender, setGender] = useState<'male'|'female'|'other'>(() => (localStorage.getItem('sonohi_gender') as 'male'|'female'|'other') || 'other');
   const [activePatches, setActivePatches] = useState<string[]>(() => {
     const saved = localStorage.getItem('sonohi_patches');
     return saved ? JSON.parse(saved) : [];
@@ -367,6 +369,8 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
+  const [isFutureModalOpen, setIsFutureModalOpen] = useState(false);
+  const [showRomance, setShowRomance] = useState(() => localStorage.getItem('sonohi_show_romance') !== 'false');
   const [yashijiAlertOpen, setYashijiAlertOpen] = useState(false);
 
   // --- 直感的操作のための状態（1〜2日選択） ---
@@ -374,12 +378,14 @@ export default function App() {
 
   // 設定の自動保存
   useEffect(() => {
+    localStorage.setItem('sonohi_gender', gender);
+    localStorage.setItem('sonohi_show_romance', showRomance.toString());
     localStorage.setItem('sonohi_year', year.toString());
     localStorage.setItem('sonohi_month', month.toString());
     localStorage.setItem('sonohi_day', day.toString());
     localStorage.setItem('sonohi_time', time);
     localStorage.setItem('sonohi_patches', JSON.stringify(activePatches));
-  }, [year, month, day, time, activePatches]);
+  }, [gender, showRomance, year, month, day, time, activePatches]);
 
   const togglePatch = (id: string) => {
     setActivePatches(prev =>
@@ -398,11 +404,14 @@ export default function App() {
     setYashijiAlertOpen(true);
   };
 
-  const handleUpdateProfile = (newYear: number, newMonth: number, newDay: number, newTime: string) => {
+  const handleUpdateProfile = (newYear: number, newMonth: number, newDay: number, newTime: string, newPatches?: string[]) => {
     setYear(newYear);
     setMonth(newMonth);
     setDay(newDay);
     setTime(newTime);
+    if (newPatches && newPatches.length > 0) {
+      setActivePatches(newPatches);
+    }
   };
 
   const safeYear = Math.max(1900, Math.min(2100, year || 1990));
@@ -560,6 +569,14 @@ export default function App() {
                   className="flex items-center gap-1 bg-indigo-600/80 backdrop-blur hover:bg-indigo-500 text-white px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border border-indigo-500 shadow-sm"
                 >
                   <User size={12} /> キャラ特性
+                </button>
+              )}
+              {baseData && (
+                <button
+                  onClick={() => setIsFutureModalOpen(true)}
+                  className="flex items-center gap-1 bg-fuchsia-600/80 backdrop-blur hover:bg-fuchsia-500 text-white px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border border-fuchsia-500 shadow-sm"
+                >
+                  <Sparkles size={12} /> 未来予測
                 </button>
               )}
             </div>
@@ -850,6 +867,18 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {baseData && result && isFutureModalOpen && (
+        <FuturePredictionModal
+          baseScore={result.gogyoScore}
+          nikkanGogyo={baseData.nikkanGogyo}
+          gender={gender}
+          onGenderChange={setGender}
+          showRomance={showRomance}
+          onToggleRomance={() => setShowRomance(!showRomance)}
+          onClose={() => setIsFutureModalOpen(false)}
+        />
       )}
 
     </div>
