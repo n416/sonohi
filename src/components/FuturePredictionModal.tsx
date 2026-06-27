@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Calendar, Sparkles, Zap, Shield, Heart, Target, Brain, Crown, Clock, User, Users } from 'lucide-react';
+import { X, Calendar, Sparkles, Zap, Shield, Heart, Target, Brain, Crown, Clock, User, Users, CalendarPlus } from 'lucide-react';
 import { calculateFutureEvents, type FuturePrediction } from '../utils/futureEngine';
 import { type StatKey } from './RPGStatusRadar';
 
@@ -107,6 +107,12 @@ export const FuturePredictionModal = ({ baseScore, nikkanGogyo, gender, onGender
   const actualStatKey = activeTab === 'ROMANCE' 
     ? (gender === 'male' ? 'DEX' : gender === 'female' ? 'DEF' : 'ATK_DEX') 
     : (activeTab as StatKey | 'ATK_DEX');
+
+  const getGoogleCalendarDate = (timestamp: number, addDays = 0) => {
+    const d = new Date(timestamp);
+    d.setDate(d.getDate() + addDays);
+    return `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -280,10 +286,24 @@ export const FuturePredictionModal = ({ baseScore, nikkanGogyo, gender, onGender
                             </div>
                           </div>
                           
-                          <div className="text-right">
-                            <div className="text-[9px] text-slate-500 font-bold mb-0.5">変動スコア</div>
-                            <div className={`text-base md:text-lg font-bold ${currentTabInfo.color.split(' ')[0]}`}>
-                              +{event.diffValue > 0 ? event.diffValue : 0}
+                          <div className="flex items-center gap-3 md:gap-4">
+                            <a
+                              href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`【特異点】${currentTabInfo.label}`)}&dates=${getGoogleCalendarDate(event.timestamp)}/${getGoogleCalendarDate(event.timestamp, 1)}&details=${encodeURIComponent(currentTabInfo.desc + '\n変動スコア: +' + (event.diffValue > 0 ? event.diffValue : 0))}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`p-1.5 md:p-2 rounded-lg transition-colors border ${
+                                isFirst ? 'border-slate-600/50 hover:bg-slate-700/50 text-slate-300' : 'border-slate-700/50 hover:bg-slate-700/50 text-slate-400'
+                              }`}
+                              title="Googleカレンダーに登録"
+                            >
+                              <CalendarPlus size={16} />
+                            </a>
+
+                            <div className="text-right">
+                              <div className="text-[9px] text-slate-500 font-bold mb-0.5">変動スコア</div>
+                              <div className={`text-base md:text-lg font-bold ${currentTabInfo.color.split(' ')[0]}`}>
+                                +{event.diffValue > 0 ? event.diffValue : 0}
+                              </div>
                             </div>
                           </div>
                         </div>
