@@ -618,53 +618,11 @@ export default function App() {
 
           <div className="px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2 lg:flex-1 lg:overflow-y-auto custom-scrollbar">
             {result && baseData ? (
-              <div className="space-y-4">
-                <FortuneCalendar
-                  selectedDates={selectedDates}
-                  onSelectDate={handleSelectDate}
-                  baseDiagnosisType={baseData.currentBaseDiagnosisType}
-                />
-
-                <div className="space-y-2 mt-4">
-                  {/* 私のトリセツ（旧：キャラ特性）ボタン */}
-                  <button
-                    onClick={() => setIsProfileOpen(true)}
-                    className="w-full relative overflow-hidden group bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 rounded-2xl p-3 transition-all shadow-sm"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <span className="relative font-bold text-emerald-300 text-sm flex items-center justify-center gap-2">
-                      <User size={18} className="text-emerald-400" />
-                      私のトリセツ
-                    </span>
-                  </button>
-
-                  <div className="flex gap-2">
-                    {/* 本日のアクション指針ボタン */}
-                    <button
-                      onClick={() => handleFeatureClick('advice')}
-                      className="flex-1 relative overflow-hidden group bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 rounded-2xl p-3 transition-all shadow-sm"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span className="relative font-bold text-indigo-300 text-[10px] md:text-xs flex items-center justify-center gap-1.5">
-                        <Sparkles size={14} className="text-indigo-400" />
-                        本日のアクション指針
-                      </span>
-                    </button>
-
-                    {/* 未来予測ボタン */}
-                    <button
-                      onClick={() => handleFeatureClick('future')}
-                      className="flex-1 relative overflow-hidden group bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 hover:from-fuchsia-500/30 hover:to-pink-500/30 border border-fuchsia-500/30 rounded-2xl p-3 transition-all shadow-sm"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span className="relative font-bold text-fuchsia-300 text-[10px] md:text-xs flex items-center justify-center gap-1.5">
-                        <Sparkles size={14} className="text-fuchsia-400" />
-                        未来予測
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <FortuneCalendar
+                selectedDates={selectedDates}
+                onSelectDate={handleSelectDate}
+                baseDiagnosisType={baseData.currentBaseDiagnosisType}
+              />
             ) : (
               <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2">
                 <Settings size={24} className="animate-spin opacity-20" />
@@ -672,6 +630,48 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {result && baseData && (
+            <div className="flex-none p-2 md:p-4 pt-2 md:pt-4 border-t border-slate-800/50 bg-slate-950/80 backdrop-blur-sm z-30 space-y-2">
+              {/* 私のトリセツ（旧：キャラ特性）ボタン */}
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="w-full relative overflow-hidden group bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 rounded-2xl p-3 transition-all shadow-sm"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="relative font-bold text-emerald-300 text-sm flex items-center justify-center gap-2">
+                  <User size={18} className="text-emerald-400" />
+                  私のトリセツ
+                </span>
+              </button>
+
+              <div className="flex gap-2">
+                {/* 本日のアクション指針ボタン */}
+                <button
+                  onClick={() => handleFeatureClick('advice')}
+                  className="flex-1 relative overflow-hidden group bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 rounded-2xl p-3 transition-all shadow-sm"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="relative font-bold text-indigo-300 text-[10px] md:text-xs flex items-center justify-center gap-1.5">
+                    <Sparkles size={14} className="text-indigo-400" />
+                    本日のアクション指針
+                  </span>
+                </button>
+
+                {/* 未来予測ボタン */}
+                <button
+                  onClick={() => handleFeatureClick('future')}
+                  className="flex-1 relative overflow-hidden group bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 hover:from-fuchsia-500/30 hover:to-pink-500/30 border border-fuchsia-500/30 rounded-2xl p-3 transition-all shadow-sm"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="relative font-bold text-fuchsia-300 text-[10px] md:text-xs flex items-center justify-center gap-1.5">
+                    <Sparkles size={14} className="text-fuchsia-400" />
+                    未来予測
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 下半分/右ペイン：鑑定結果 */}

@@ -146,8 +146,8 @@ export const DiagnosisReport: React.FC<Props> = ({ scores, nikkanGogyo, timeBuff
             )}
 
             <div className="flex justify-between text-[10px] font-bold mb-1.5 px-1">
-              <span className="text-emerald-400">Base Power: {currentDiagnosis.basePower}</span>
-              <span className="text-rose-400">World Burden: {currentDiagnosis.worldBurden}</span>
+              <span className="text-emerald-400">Base Power: {currentDiagnosis.basePower.toFixed(1)}</span>
+              <span className="text-rose-400">World Burden: {currentDiagnosis.worldBurden.toFixed(1)}</span>
             </div>
 
             <div className="relative h-2 bg-slate-700/50 rounded-full overflow-hidden flex border border-slate-600/50">
