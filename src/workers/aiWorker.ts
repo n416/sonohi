@@ -46,14 +46,14 @@ const extractEntities = (text: string) => {
   const toHalfWidth = (str: string) => str.replace(/[！-～]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
   let normalizedText = toHalfWidth(text);
   
-  // 午前・午後の表記を24時間制に変換
-  normalizedText = normalizedText.replace(/午後(\d{1,2})時/g, (_, p1) => {
-    let h = parseInt(p1, 10);
+  // 午前・午後・AM・PMの表記を24時間制に変換
+  normalizedText = normalizedText.replace(/(?:午後|PM)\s*(\d{1,2})(?:時)?|(\d{1,2})\s*(?:PM)/gi, (_, p1, p2) => {
+    let h = parseInt(p1 || p2, 10);
     if (h < 12) h += 12;
     return h + '時';
   });
-  normalizedText = normalizedText.replace(/午前(\d{1,2})時/g, (_, p1) => {
-    let h = parseInt(p1, 10);
+  normalizedText = normalizedText.replace(/(?:午前|AM)\s*(\d{1,2})(?:時)?|(\d{1,2})\s*(?:AM)/gi, (_, p1, p2) => {
+    let h = parseInt(p1 || p2, 10);
     if (h === 12) h = 0;
     return h + '時';
   });
