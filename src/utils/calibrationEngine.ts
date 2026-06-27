@@ -2,13 +2,7 @@ import { Solar } from 'lunar-javascript';
 import { calculateMeishiki } from './meishiki';
 import { calculateRPGStats } from './rpgEngine';
 import { getYearlyBuffScore, BRANCHES } from './suijiEngine';
-
-export const AVAILABLE_PATCHES = [
-  'PATCH_KUBOU',
-  'PATCH_YASHIJI',
-  'PATCH_CHU_GOU',
-  'PATCH_SHINSATSU'
-];
+import { getAllPatchIds } from './patchRegistry';
 
 export type CalibrationYears = {
   atkYear: number;
@@ -127,17 +121,24 @@ export const calculateCalibrationYears = (
 
 /**
  * 焼きなまし法による次のパッチ状態の生成（近傍探索）
- * ランダムに1つのパッチの有効/無効を切り替える
+ * 温度が高いほど、より多くのパッチを同時に反転させ、大きなジャンプ（広域探索）を許容する
  */
-export const getNextPatchState = (currentPatches: string[]): string[] => {
+export const getNextPatchState = (currentPatches: string[], temperature: number): string[] => {
   const nextPatches = [...currentPatches];
-  const targetPatch = AVAILABLE_PATCHES[Math.floor(Math.random() * AVAILABLE_PATCHES.length)];
+  const allPatches = getAllPatchIds();
   
-  const idx = nextPatches.indexOf(targetPatch);
-  if (idx !== -1) {
-    nextPatches.splice(idx, 1);
-  } else {
-    nextPatches.push(targetPatch);
+  // 温度が1.0に近いほど多く反転（最大でも全パッチの30%程度）、0に近いほど1個だけ反転
+  const maxFlips = Math.max(1, Math.floor(allPatches.length * 0.3 * temperature));
+  const numFlips = Math.floor(Math.random() * maxFlips) + 1;
+  
+  for (let i = 0; i < numFlips; i++) {
+    const targetPatch = allPatches[Math.floor(Math.random() * allPatches.length)];
+    const idx = nextPatches.indexOf(targetPatch);
+    if (idx !== -1) {
+      nextPatches.splice(idx, 1);
+    } else {
+      nextPatches.push(targetPatch);
+    }
   }
   
   return nextPatches;

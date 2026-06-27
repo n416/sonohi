@@ -396,82 +396,93 @@ export const ProfileChat = ({
       return;
     }
 
-    let currentTemp = calibTemp;
-    let currentBestScore = calibBestScore;
-    let currentPatches = calibPatches;
-    let newYears: CalibrationYears | null = null;
-    const currentAnswers = finalAnswers;
-  
-    if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
-      currentBestScore = score;
-      setCalibBestScore(score);
-    }
+    addAssistantMessage("数千パターンの流派組み合わせから、最適な運命グラフを再計算しています... しばらくお待ち下さい。");
+    setIsProcessing(true);
 
     const y = tempDate ? tempDate.y : currentYear;
     const m = tempDate ? tempDate.m : currentMonth;
     const d = tempDate ? tempDate.d : currentDay;
 
-    let needNewQuestion = false;
+    let currentTemp = calibTemp;
+    let currentBestScore = calibBestScore;
+    let currentPatches = calibPatches;
+    const currentAnswers = finalAnswers;
     let loopCount = 0;
+    const MAX_LOOPS = 2000;
+    const CHUNK_SIZE = 50;
 
-    // 新しい質問（未回答の年）が発生する状態を引くまで裏で焼きなましを進行させる
-    while (currentTemp >= 0.1 && score < 4 && loopCount < 50) {
-      loopCount++;
-      const nextPatches = getNextPatchState(currentPatches);
-      const nextYears = calculateCalibrationYears(y, m, d, savedTimeRef.current, nextPatches);
-      
-      const targetYears = {
-        ATK: nextYears.atkYear,
-        DEF: nextYears.defYear,
-        HP: nextYears.hpYear,
-        CHU: nextYears.chuYear
-      };
+    if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
+      currentBestScore = score;
+      setCalibBestScore(score);
+    }
 
-      let hasNewQuestion = false;
-      let nextScore = 0;
-      
-      for (const key of ['ATK', 'DEF', 'HP', 'CHU'] as const) {
-        // ts-ignore は使わず、型安全にアクセス
-        const k = key as keyof typeof targetYears;
-        if (targetYears[k] === 0) {
-          nextScore++; 
-        } else if (currentAnswers[k] && currentAnswers[k].year === targetYears[k]) {
-          if (currentAnswers[k].answer) nextScore++;
+    const runChunk = () => {
+      let needNewQuestion = false;
+      let newYears: CalibrationYears | null = null;
+      let chunkLoop = 0;
+
+      while (currentTemp >= 0.1 && score < 4 && chunkLoop < CHUNK_SIZE && loopCount < MAX_LOOPS) {
+        loopCount++;
+        chunkLoop++;
+        const nextPatches = getNextPatchState(currentPatches, currentTemp);
+        const nextYears = calculateCalibrationYears(y, m, d, savedTimeRef.current, nextPatches);
+        
+        const targetYears = {
+          ATK: nextYears.atkYear,
+          DEF: nextYears.defYear,
+          HP: nextYears.hpYear,
+          CHU: nextYears.chuYear
+        };
+
+        let hasNewQuestion = false;
+        let nextScore = 0;
+        
+        for (const key of ['ATK', 'DEF', 'HP', 'CHU'] as const) {
+          const k = key as keyof typeof targetYears;
+          if (targetYears[k] === 0) {
+            nextScore++; 
+          } else if (currentAnswers[k] && currentAnswers[k].year === targetYears[k]) {
+            if (currentAnswers[k].answer) nextScore++;
+          } else {
+            hasNewQuestion = true;
+          }
+        }
+
+        if (hasNewQuestion && nextScore >= currentBestScore) {
+          needNewQuestion = true;
+          currentPatches = nextPatches;
+          currentTemp = currentTemp * 0.99;
+          newYears = nextYears;
+          break;
         } else {
-          hasNewQuestion = true;
+          score = nextScore;
+          if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
+            currentBestScore = score;
+          }
+          currentPatches = nextPatches;
+          currentTemp = currentTemp * 0.99;
         }
       }
 
-      if (hasNewQuestion) {
-        needNewQuestion = true;
-        currentPatches = nextPatches;
-        currentTemp = currentTemp * 0.8;
-        newYears = nextYears;
-        break;
+      if (needNewQuestion && newYears) {
+        setIsProcessing(false);
+        setCalibPatches(currentPatches);
+        setCalibTemp(currentTemp);
+        setCalibBestScore(currentBestScore);
+        setCalibYears(newYears);
+        askCalibrationQuestion(0, newYears, currentAnswers);
+      } else if (currentTemp < 0.1 || score === 4 || loopCount >= MAX_LOOPS) {
+        setIsProcessing(false);
+        setCalibPatches(currentPatches);
+        setCalibTemp(currentTemp);
+        setCalibBestScore(currentBestScore);
+        completeCalibration(currentBestScore);
       } else {
-        score = nextScore;
-        if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
-          currentBestScore = score;
-          setCalibBestScore(score);
-        }
-        currentPatches = nextPatches;
-        currentTemp = currentTemp * 0.8;
+        setTimeout(runChunk, 0);
       }
-    }
+    };
 
-    setCalibPatches(currentPatches);
-    setCalibTemp(currentTemp);
-
-    if (score === 4 || currentTemp < 0.1 || !needNewQuestion || !newYears) {
-      completeCalibration(score);
-      return;
-    }
-  
-    setCalibYears(newYears);
-    addAssistantMessage("なるほど...少し視点を変えて、再計算してみます。");
-    setTimeout(() => {
-      askCalibrationQuestion(0, newYears, currentAnswers);
-    }, 1000);
+    setTimeout(runChunk, 0);
   };
 
   const sendMessage = (overrideText?: string) => {
