@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Settings, MessageCircle, Sparkles, ChevronDown, ChevronUp, User, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Settings, MessageCircle, Sparkles, ChevronDown, ChevronUp, User, X } from 'lucide-react';
 import { DiagnosisReport } from './components/DiagnosisReport';
 import { RPGStatusRadar } from './components/RPGStatusRadar';
 import { FortuneCalendar } from './components/FortuneCalendar';
@@ -368,7 +368,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOnboarding, setIsOnboarding] = useState(() => !localStorage.getItem('sonohi_year'));
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isCompareMode, setIsCompareMode] = useState(false);
+  const [showMainClearConfirm, setShowMainClearConfirm] = useState(false);
   const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
   const [isFutureModalOpen, setIsFutureModalOpen] = useState(false);
   const [showRomance, setShowRomance] = useState(() => localStorage.getItem('sonohi_show_romance') !== 'false');
@@ -518,32 +518,7 @@ export default function App() {
   }, [result, baseData, selectedDates]);
 
   const handleSelectDate = (date: Date) => {
-    setSelectedDates(prev => {
-      // 通常モードなら常に1つだけ選択
-      if (!isCompareMode) {
-        return [date];
-      }
-
-      // 比較モードのロジック
-      const exists = prev.find(d => d.getTime() === date.getTime());
-      if (exists) {
-        if (prev.length === 1) return prev;
-        return prev.filter(d => d.getTime() !== date.getTime());
-      }
-      if (prev.length >= 2) return [prev[1], date];
-      return [...prev, date];
-    });
-  };
-
-  const toggleCompareMode = () => {
-    setIsCompareMode(prev => {
-      const next = !prev;
-      // 比較モードをオフにしたとき、選択日付が2つあれば最新の1つに絞る
-      if (!next && selectedDates.length > 1) {
-        setSelectedDates([selectedDates[selectedDates.length - 1]]);
-      }
-      return next;
-    });
+    setSelectedDates([date]);
   };
 
   const startChat = () => {
@@ -576,34 +551,24 @@ export default function App() {
                 <Sparkles size={12} className="text-pink-400" />
                 パッチ
               </button>
-              {baseData && (
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-900/50 rounded-lg border border-slate-700/50 p-0.5">
+              {showMainClearConfirm ? (
+                <>
+                  <button onClick={() => setShowMainClearConfirm(false)} className="text-[10px] text-slate-400 hover:text-white px-2 py-1 transition-colors">キャンセル</button>
+                  <button onClick={handleClearData} className="text-[10px] text-red-400 hover:text-red-300 font-bold px-2 py-1 bg-red-500/10 rounded transition-colors">本当に初期化</button>
+                </>
+              ) : (
                 <button
-                  onClick={() => setIsProfileOpen(true)}
-                  className="flex items-center gap-1 bg-indigo-600/80 backdrop-blur hover:bg-indigo-500 text-white px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border border-indigo-500 shadow-sm"
+                  onClick={() => setShowMainClearConfirm(true)}
+                  className="flex items-center gap-1 bg-slate-800/80 backdrop-blur hover:bg-red-500/20 hover:text-red-400 text-slate-400 px-2 py-1 rounded transition-colors text-[10px] font-bold"
                 >
-                  <User size={12} /> キャラ特性
-                </button>
-              )}
-              {baseData && (
-                <button
-                  onClick={() => setIsFutureModalOpen(true)}
-                  className="flex items-center gap-1 bg-fuchsia-600/80 backdrop-blur hover:bg-fuchsia-500 text-white px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border border-fuchsia-500 shadow-sm"
-                >
-                  <Sparkles size={12} /> 未来予測
+                  <X size={12} />
+                  全クリア
                 </button>
               )}
             </div>
-
-            <button
-              onClick={toggleCompareMode}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border backdrop-blur shadow-sm ${isCompareMode
-                  ? 'bg-pink-500/20 text-pink-400 border-pink-500/50'
-                  : 'bg-slate-800/80 text-slate-300 border-slate-700'
-                }`}
-            >
-              {isCompareMode ? <ToggleRight size={14} className="text-pink-400" /> : <ToggleLeft size={14} />}
-              比較モード
-            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2">
@@ -615,17 +580,45 @@ export default function App() {
                   baseDiagnosisType={baseData.currentBaseDiagnosisType}
                 />
 
-                {/* 本日のアクション指針（詳細）ボタン */}
-                <button
-                  onClick={() => setIsAdviceModalOpen(true)}
-                  className="w-full relative overflow-hidden group bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 rounded-2xl p-4 transition-all"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <span className="relative font-bold text-indigo-300 text-sm flex items-center justify-center gap-2">
-                    <Sparkles size={18} className="text-indigo-400" />
-                    本日のアクション指針（詳細）を見る
-                  </span>
-                </button>
+                <div className="space-y-2 mt-4">
+                  {/* 私のトリセツ（旧：キャラ特性）ボタン */}
+                  <button
+                    onClick={() => setIsProfileOpen(true)}
+                    className="w-full relative overflow-hidden group bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 rounded-2xl p-3 transition-all shadow-sm"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="relative font-bold text-emerald-300 text-sm flex items-center justify-center gap-2">
+                      <User size={18} className="text-emerald-400" />
+                      私のトリセツ
+                    </span>
+                  </button>
+
+                  <div className="flex gap-2">
+                    {/* 本日のアクション指針ボタン */}
+                    <button
+                      onClick={() => setIsAdviceModalOpen(true)}
+                      className="flex-1 relative overflow-hidden group bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 rounded-2xl p-3 transition-all shadow-sm"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="relative font-bold text-indigo-300 text-[10px] md:text-xs flex items-center justify-center gap-1.5">
+                        <Sparkles size={14} className="text-indigo-400" />
+                        本日のアクション指針
+                      </span>
+                    </button>
+
+                    {/* 未来予測ボタン */}
+                    <button
+                      onClick={() => setIsFutureModalOpen(true)}
+                      className="flex-1 relative overflow-hidden group bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 hover:from-fuchsia-500/30 hover:to-pink-500/30 border border-fuchsia-500/30 rounded-2xl p-3 transition-all shadow-sm"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="relative font-bold text-fuchsia-300 text-[10px] md:text-xs flex items-center justify-center gap-1.5">
+                        <Sparkles size={14} className="text-fuchsia-400" />
+                        未来予測
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2">
@@ -660,7 +653,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* レーダーチャート（1〜2日分を重ね合わせて比較表示） */}
+              {/* レーダーチャート */}
               <RPGStatusRadar
                 scores={result.gogyoScore}
                 nikkanGogyo={baseData.nikkanGogyo}
@@ -668,28 +661,18 @@ export default function App() {
                   date: finalStatsDataList[0].date,
                   timeBuffs: finalStatsDataList[0].currentTimeBuffs
                 }}
-                secondaryData={finalStatsDataList[1] ? {
-                  date: finalStatsDataList[1].date,
-                  timeBuffs: finalStatsDataList[1].currentTimeBuffs
-                } : undefined}
                 domainMax={monthlyMaxDomain}
               />
 
-              {/* 診断レポート（テキストは縦並びで表示） */}
+              {/* 診断レポート */}
               <div className="flex flex-col gap-3 md:gap-6">
-                {finalStatsDataList.map((data, index) => {
+                {finalStatsDataList.map((data) => {
                   const { nikkanGogyo } = baseData;
-                  const isSecond = index === 1;
-
-                  // スタイル分岐
-                  const colorConfig = isSecond
-                    ? { text: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500' }
-                    : { text: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500' };
 
                   return (
                     <div key={data.date.getTime()} className="space-y-2 md:space-y-4">
-                      <h3 className={`text-xs font-bold pb-1 flex items-center gap-1.5 ${colorConfig.text}`}>
-                        <div className={`w-2 h-2 rounded-full ${colorConfig.bg}`} />
+                      <h3 className="text-xs font-bold pb-1 flex items-center gap-1.5 text-indigo-400">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
                         {data.date.getMonth() + 1}/{data.date.getDate()}の運勢
                       </h3>
 
