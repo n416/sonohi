@@ -371,6 +371,8 @@ export default function App() {
   const [showMainClearConfirm, setShowMainClearConfirm] = useState(false);
   const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
   const [isFutureModalOpen, setIsFutureModalOpen] = useState(false);
+  const [isCalibrated, setIsCalibrated] = useState(() => localStorage.getItem('sonohi_calibrated') === 'true');
+  const [alertData, setAlertData] = useState<{title: string, message: string, showInferenceBtn: boolean, showCalibrationBtn: boolean} | null>(null);
   const [showRomance, setShowRomance] = useState(() => localStorage.getItem('sonohi_show_romance') !== 'false');
   const [yashijiAlertOpen, setYashijiAlertOpen] = useState(false);
   const [isSplashOpen, setIsSplashOpen] = useState(() => localStorage.getItem('sonohi_hide_splash') !== 'true');
@@ -389,7 +391,16 @@ export default function App() {
     localStorage.setItem('sonohi_day', day.toString());
     localStorage.setItem('sonohi_time', time);
     localStorage.setItem('sonohi_patches', JSON.stringify(activePatches));
-  }, [gender, showRomance, year, month, day, time, activePatches, isOnboarding]);
+    localStorage.setItem('sonohi_calibrated', isCalibrated.toString());
+  }, [gender, showRomance, year, month, day, time, activePatches, isOnboarding, isCalibrated]);
+
+  const accuracy = useMemo(() => {
+    let acc = 0;
+    if (year !== 1990 || !isOnboarding) acc = 50;
+    if (acc === 50 && time !== "不明") acc = 75;
+    if (acc === 75 && isCalibrated) acc = 100;
+    return acc;
+  }, [year, isOnboarding, time, isCalibrated]);
 
   const togglePatch = (id: string) => {
     setActivePatches(prev =>
@@ -408,7 +419,7 @@ export default function App() {
     setYashijiAlertOpen(true);
   };
 
-  const handleUpdateProfile = (newYear: number, newMonth: number, newDay: number, newTime: string, newPatches?: string[]) => {
+  const handleUpdateProfile = (newYear: number, newMonth: number, newDay: number, newTime: string, newPatches?: string[], newIsCalibrated?: boolean) => {
     setYear(newYear);
     setMonth(newMonth);
     setDay(newDay);
@@ -416,12 +427,15 @@ export default function App() {
     if (newPatches && newPatches.length > 0) {
       setActivePatches(newPatches);
     }
+    if (newIsCalibrated !== undefined) {
+      setIsCalibrated(newIsCalibrated);
+    }
   };
 
   const handleClearData = () => {
     const keysToRemove = [
       'sonohi_year', 'sonohi_month', 'sonohi_day', 'sonohi_time',
-      'sonohi_gender', 'sonohi_show_romance', 'sonohi_patches', 'sonohi_hide_splash'
+      'sonohi_gender', 'sonohi_show_romance', 'sonohi_patches', 'sonohi_hide_splash', 'sonohi_calibrated'
     ];
     keysToRemove.forEach(k => localStorage.removeItem(k));
     window.location.reload();
@@ -525,8 +539,39 @@ export default function App() {
     setIsChatMode(true);
   };
 
+  const handleFeatureClick = (feature: 'advice' | 'future') => {
+    if (accuracy < 75) {
+      setAlertData({
+        title: '精度不足 (75%未満)',
+        message: 'この機能を利用するには、運勢同調精度が75%以上（出生時間の入力済）である必要があります。',
+        showInferenceBtn: true,
+        showCalibrationBtn: false
+      });
+      return;
+    }
+    if (feature === 'advice') setIsAdviceModalOpen(true);
+    if (feature === 'future') setIsFutureModalOpen(true);
+  };
+
   return (
     <div className="h-[100dvh] flex flex-col bg-slate-950 text-slate-300 font-sans selection:bg-indigo-500/30 overflow-hidden">
+      
+      {/* 精度メーター */}
+      <div className="flex-none bg-slate-900 border-b border-slate-700/50 p-2 md:p-3 flex items-center justify-between gap-4 z-40 relative">
+        <div className="flex items-center gap-1 md:gap-2">
+          <Sparkles size={16} className={accuracy >= 100 ? "text-yellow-400" : "text-indigo-400"} />
+          <span className="text-xs md:text-sm font-bold text-slate-300 whitespace-nowrap">運勢同調精度</span>
+        </div>
+        <div className="flex-1 max-w-md bg-slate-950 rounded-full h-2 md:h-3 overflow-hidden border border-slate-800 relative">
+          <div 
+            className={`absolute top-0 left-0 h-full transition-all duration-1000 ${accuracy >= 100 ? 'bg-gradient-to-r from-yellow-500 to-amber-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-gradient-to-r from-indigo-500 to-fuchsia-500'}`} 
+            style={{ width: `${accuracy}%` }} 
+          />
+        </div>
+        <div className={`text-xs md:text-sm font-bold w-12 text-right ${accuracy >= 100 ? 'text-yellow-400' : 'text-slate-300'}`}>
+          {accuracy}%
+        </div>
+      </div>
 
       {/* 2ペイン・スプリットレイアウト */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
@@ -596,7 +641,7 @@ export default function App() {
                   <div className="flex gap-2">
                     {/* 本日のアクション指針ボタン */}
                     <button
-                      onClick={() => setIsAdviceModalOpen(true)}
+                      onClick={() => handleFeatureClick('advice')}
                       className="flex-1 relative overflow-hidden group bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 rounded-2xl p-3 transition-all shadow-sm"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -608,7 +653,7 @@ export default function App() {
 
                     {/* 未来予測ボタン */}
                     <button
-                      onClick={() => setIsFutureModalOpen(true)}
+                      onClick={() => handleFeatureClick('future')}
                       className="flex-1 relative overflow-hidden group bg-gradient-to-r from-fuchsia-500/20 to-pink-500/20 hover:from-fuchsia-500/30 hover:to-pink-500/30 border border-fuchsia-500/30 rounded-2xl p-3 transition-all shadow-sm"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -882,6 +927,48 @@ export default function App() {
         <SplashModal onClose={() => setIsSplashOpen(false)} onClearData={handleClearData} />
       )}
 
+      {alertData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl shadow-xl max-w-sm w-full relative overflow-hidden animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-slate-100 mb-3 flex items-center gap-2">
+              <span className="text-indigo-400"><MessageCircle size={24} /></span> {alertData.title}
+            </h3>
+            <p className="text-slate-300 text-sm mb-6 leading-relaxed">
+              {alertData.message}
+            </p>
+            <div className="flex flex-col gap-2">
+              {alertData.showInferenceBtn && (
+                <button
+                  onClick={() => {
+                    setAlertData(null);
+                    startChat();
+                  }}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Sparkles size={16} /> AIによる出生時間の推時へ
+                </button>
+              )}
+              {alertData.showCalibrationBtn && (
+                <button
+                  onClick={() => {
+                    setAlertData(null);
+                    setIsSystemChatOpen(true);
+                  }}
+                  className="w-full bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Sparkles size={16} /> 運勢のキャリブレーションへ
+                </button>
+              )}
+              <button
+                onClick={() => setAlertData(null)}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-4 rounded-lg transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

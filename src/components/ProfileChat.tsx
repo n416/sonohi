@@ -12,7 +12,7 @@ interface ProfileChatProps {
   currentDay: number;
   currentTime: string;
   isOnboarding: boolean;
-  onUpdateProfile: (year: number, month: number, day: number, time: string, patches: string[]) => void;
+  onUpdateProfile: (year: number, month: number, day: number, time: string, patches: string[], isCalibrated?: boolean) => void;
   onOpenTimeInference?: () => void; // 削除予定だが互換性のため残す
   onClose: () => void;
   onClearData?: () => void;
@@ -375,7 +375,7 @@ export const ProfileChat = ({
     feedback += `右上の「完了して閉じる」ボタンでステータス画面へお進みください。`;
 
     addAssistantMessage(feedback, ['閉じる']);
-    onUpdateProfile(y, m, d, savedTimeRef.current, calibPatches);
+    onUpdateProfile(y, m, d, savedTimeRef.current, calibPatches, true);
   };
 
   const evaluateCalibrationRound = (finalAnswers: typeof calibAnswers) => {
