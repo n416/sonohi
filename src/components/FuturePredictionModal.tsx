@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Calendar, Sparkles, Zap, Shield, Heart, Target, Brain, Crown, Clock, User, Users, CalendarPlus } from 'lucide-react';
+import { X, Calendar, Sparkles, Zap, Shield, Heart, Target, Crown, Clock, Users, CalendarPlus, Flame } from 'lucide-react';
 import { calculateFutureEvents, type FuturePrediction } from '../utils/futureEngine';
 import { type StatKey } from './RPGStatusRadar';
 
@@ -64,23 +64,23 @@ export const FuturePredictionModal = ({ baseScore, nikkanGogyo, gender, onGender
       key: 'DEX', 
       icon: <Target size={16} />, 
       label: '財運・勝負', 
-      color: 'text-amber-400 border-amber-500/50 bg-amber-500/10',
+      color: 'text-yellow-400 border-yellow-500/50 bg-yellow-500/10',
       desc: '器用さ・財星。お金やコントロール力が極大化する日です。',
       advice: '宝くじの購入や競馬などの勝負事、あるいは大きな買い物や投資を決断するのに最も適した「限界突破」のタイミングです！'
     },
     { 
       key: 'ATK', 
-      icon: <Zap size={16} />, 
+      icon: <Flame size={16} />, 
       label: '攻撃・表現', 
-      color: 'text-rose-400 border-rose-500/50 bg-rose-500/10',
+      color: 'text-orange-400 border-orange-500/50 bg-orange-500/10',
       desc: '攻撃力・食傷。表現力や直感が冴え渡る日です。',
       advice: '仕事での大きなプレゼン、あるいは新しいプロジェクトを立ち上げるなど人生の「大勝負」を仕掛けるべき日です！'
     },
     { 
       key: 'HP', 
-      icon: <User size={16} />, 
+      icon: <Heart size={16} />, 
       label: '独立・自己主張', 
-      color: 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10',
+      color: 'text-rose-400 border-rose-500/50 bg-rose-500/10',
       desc: '体力・比劫。自我が強まり、独立心が限界突破する日です。',
       advice: '一人で何かに没頭したり、フリーランスとしての活動を広げたり、周りに流されず自分の意志を貫くのに最適な日です！'
     },
@@ -88,13 +88,13 @@ export const FuturePredictionModal = ({ baseScore, nikkanGogyo, gender, onGender
       key: 'DEF', 
       icon: <Shield size={16} />, 
       label: '防御・忍耐', 
-      color: 'text-cyan-400 border-cyan-500/50 bg-cyan-500/10',
+      color: 'text-blue-400 border-blue-500/50 bg-blue-500/10',
       desc: '防御力・官殺。プレッシャーが高まる試練と防衛戦の日です。',
       advice: 'あえて目立った行動は避け、ルーチンワークやルールの整備、自己防衛に徹することで、強力なデバフをやり過ごせます。'
     },
     { 
       key: 'MP', 
-      icon: <Brain size={16} />, 
+      icon: <Zap size={16} />, 
       label: '知識・学習', 
       color: 'text-purple-400 border-purple-500/50 bg-purple-500/10',
       desc: '魔力・印星。吸収力と学習能力が極大化する日です。',
