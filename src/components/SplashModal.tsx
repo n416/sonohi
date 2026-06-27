@@ -20,14 +20,14 @@ export function SplashModal({ onClose, onClearData }: SplashModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
         onClick={handleClose}
       />
 
       {/* Modal Content */}
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
+
         {/* Header Decoration */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
@@ -65,8 +65,8 @@ export function SplashModal({ onClose, onClearData }: SplashModalProps) {
               なにか追加してほしい機能があれば、Xアカウント <a href="https://x.com/n416" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">@n416</a> までご連絡ください。
             </p>
             <p className="font-bold text-white pt-2">
-              それでも、機能面では現在世の中にあるどんな占いソフトよりも優れているという自負があります。<br />
-              それでは、心ゆくまでお楽しみください！
+              機能面では現在世の中にあるどんな占いソフトよりも優れているという自負があります。<br />
+              ぜひお楽しみください！
             </p>
           </div>
         </div>
@@ -83,7 +83,7 @@ export function SplashModal({ onClose, onClearData }: SplashModalProps) {
               />
               次から表示しない
             </label>
-            
+
             <div className="flex items-center gap-2">
               {showClearConfirm ? (
                 <>
@@ -95,7 +95,7 @@ export function SplashModal({ onClose, onClearData }: SplashModalProps) {
               )}
             </div>
           </div>
-          
+
           <button
             onClick={handleClose}
             className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-500/20 shrink-0"
