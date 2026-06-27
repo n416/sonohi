@@ -380,6 +380,8 @@ export default function App() {
 
   // 設定の自動保存
   useEffect(() => {
+    if (isOnboarding) return; // オンボーディング完了前は自動保存しない
+    
     localStorage.setItem('sonohi_gender', gender);
     localStorage.setItem('sonohi_show_romance', showRomance.toString());
     localStorage.setItem('sonohi_year', year.toString());
@@ -387,7 +389,7 @@ export default function App() {
     localStorage.setItem('sonohi_day', day.toString());
     localStorage.setItem('sonohi_time', time);
     localStorage.setItem('sonohi_patches', JSON.stringify(activePatches));
-  }, [gender, showRomance, year, month, day, time, activePatches]);
+  }, [gender, showRomance, year, month, day, time, activePatches, isOnboarding]);
 
   const togglePatch = (id: string) => {
     setActivePatches(prev =>
@@ -789,7 +791,7 @@ export default function App() {
         />
       )}
 
-      {isSystemChatOpen && (
+      {!isSplashOpen && isSystemChatOpen && (
         <ProfileChat
           currentYear={year}
           currentMonth={month}
