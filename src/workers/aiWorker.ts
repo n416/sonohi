@@ -70,17 +70,12 @@ const extractEntities = (text: string) => {
     }
   }
 
-  const timeRegex = /(\d{1,2})時|子|丑|寅|卯|辰|巳|午(?!前|後)|未|申|酉|戌|亥/;
+  const timeRegex = /(\d{1,2})時/;
   const timeMatch = normalizedText.match(timeRegex);
   if (timeMatch) {
-    const matchText = timeMatch[0];
-    if (matchText.includes('時')) {
-      const hour = parseInt(matchText, 10);
-      const zishiMap = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-      entities.time = zishiMap[Math.floor((hour + 1) % 24 / 2)];
-    } else {
-      entities.time = matchText;
-    }
+    const hour = parseInt(timeMatch[1], 10);
+    const zishiMap = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+    entities.time = zishiMap[Math.floor((hour + 1) % 24 / 2)];
   }
   
   return entities;
