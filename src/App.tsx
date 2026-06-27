@@ -11,6 +11,7 @@ import { calculateMeishiki, type Meishiki, type GogyoScore } from './utils/meish
 import { CharacterProfileModal } from './components/CharacterProfileModal';
 import { DailyAdviceModal } from './components/DailyAdviceModal';
 import { FuturePredictionModal } from './components/FuturePredictionModal';
+import { SplashModal } from './components/SplashModal';
 
 // ==========================================
 // 1. コア演算エンジン（パッチ処理ロジック）
@@ -372,6 +373,7 @@ export default function App() {
   const [isFutureModalOpen, setIsFutureModalOpen] = useState(false);
   const [showRomance, setShowRomance] = useState(() => localStorage.getItem('sonohi_show_romance') !== 'false');
   const [yashijiAlertOpen, setYashijiAlertOpen] = useState(false);
+  const [isSplashOpen, setIsSplashOpen] = useState(() => localStorage.getItem('sonohi_hide_splash') !== 'true');
 
   // --- 直感的操作のための状態（1〜2日選択） ---
   const [selectedDates, setSelectedDates] = useState<Date[]>([new Date()]);
@@ -879,6 +881,10 @@ export default function App() {
           onToggleRomance={() => setShowRomance(!showRomance)}
           onClose={() => setIsFutureModalOpen(false)}
         />
+      )}
+
+      {isSplashOpen && (
+        <SplashModal onClose={() => setIsSplashOpen(false)} />
       )}
 
     </div>
