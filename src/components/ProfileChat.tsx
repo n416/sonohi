@@ -379,6 +379,7 @@ export const ProfileChat = ({
               {messages[messages.length - 1].quickReplies!.map((reply, i) => (
                 <button
                   key={i}
+                  disabled={!isWorkerReady || isProcessing}
                   onClick={() => {
                     setInput(reply);
                     setTimeout(() => {
@@ -386,7 +387,7 @@ export const ProfileChat = ({
                       if (btn) btn.click();
                     }, 0);
                   }}
-                  className="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 text-slate-300 hover:text-white text-sm px-4 py-2 rounded-full transition-colors shadow-sm"
+                  className="bg-slate-800 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 text-slate-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-800 disabled:hover:border-slate-700 disabled:hover:text-slate-300 text-sm px-4 py-2 rounded-full transition-colors shadow-sm"
                 >
                   {reply}
                 </button>
@@ -402,19 +403,20 @@ export const ProfileChat = ({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder={
+              !isWorkerReady ? "AIモデルを準備中..." :
               phase === 'ask_date' ? "例：1990年5月15日" : 
               phase === 'ask_time' ? "例：夕方の16時くらい" : 
               phase === 'inference_when' ? "例：2018年、あるいは25歳の時" :
               phase === 'inference_what' ? "例：人間関係でトラブルがあった" :
               "生年月日や時間を入力"
             }
-            className="flex-1 bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600 text-sm md:text-base disabled:opacity-50"
-            disabled={isProcessing}
+            className="flex-1 bg-slate-950 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!isWorkerReady || isProcessing}
           />
           <button 
             id="system-send-btn"
             onClick={sendMessage}
-            disabled={!input.trim() || isProcessing}
+            disabled={!input.trim() || !isWorkerReady || isProcessing}
             className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 rounded-xl flex items-center gap-2 transition-colors font-bold shadow-[0_0_10px_rgba(79,70,229,0.3)] hover:shadow-[0_0_15px_rgba(79,70,229,0.5)]"
           >
             {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
