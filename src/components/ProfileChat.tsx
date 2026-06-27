@@ -311,7 +311,7 @@ export const ProfileChat = ({
     }
   };
 
-  const completeCalibration = () => {
+  const completeCalibration = (finalScore: number) => {
     const y = tempDate ? tempDate.y : currentYear;
     const m = tempDate ? tempDate.m : currentMonth;
     const d = tempDate ? tempDate.d : currentDay;
@@ -355,7 +355,14 @@ export const ProfileChat = ({
       return '';
     };
 
-    let feedback = `キャリブレーションが完了しました！AIがあなたの運勢の波を完全に同調させました。\n\n`;
+    let feedback = '';
+    if (finalScore === 4) {
+      feedback = `キャリブレーションが完了しました！AIがあなたの運勢の波を完全に同調させました。\n\n`;
+    } else if (finalScore === 3) {
+      feedback = `キャリブレーションが完了しました！高い精度であなたの運勢の波を同調させました。\n\n`;
+    } else {
+      feedback = `何度か調整を試みましたが、過去の特異点を完全に一致させることはできませんでした。しかし、これが現在のあなたの波長に最も近いベース設定となります。\n\n`;
+    }
     
     if (calibYears) {
       feedback += `ちなみに、現在のあなたのステータス傾向から過去の特異点を振り返ると、\n`;
@@ -385,7 +392,7 @@ export const ProfileChat = ({
     });
   
     if (score === 4) {
-      completeCalibration();
+      completeCalibration(4);
       return;
     }
 
@@ -456,7 +463,7 @@ export const ProfileChat = ({
     setCalibTemp(currentTemp);
 
     if (score === 4 || currentTemp < 0.1 || !needNewQuestion || !newYears) {
-      completeCalibration();
+      completeCalibration(score);
       return;
     }
   
