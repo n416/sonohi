@@ -44,7 +44,19 @@ const profileIntentEmbeddings: Record<string, any> = {};
 // エンティティ抽出用のヘルパー関数
 const extractEntities = (text: string) => {
   const toHalfWidth = (str: string) => str.replace(/[！-～]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
-  const normalizedText = toHalfWidth(text);
+  let normalizedText = toHalfWidth(text);
+  
+  // 午前・午後の表記を24時間制に変換
+  normalizedText = normalizedText.replace(/午後(\d{1,2})時/g, (_, p1) => {
+    let h = parseInt(p1, 10);
+    if (h < 12) h += 12;
+    return h + '時';
+  });
+  normalizedText = normalizedText.replace(/午前(\d{1,2})時/g, (_, p1) => {
+    let h = parseInt(p1, 10);
+    if (h === 12) h = 0;
+    return h + '時';
+  });
   
   const entities: { year?: number, month?: number, day?: number, time?: string } = {};
   
@@ -58,7 +70,7 @@ const extractEntities = (text: string) => {
     }
   }
 
-  const timeRegex = /(\d{1,2})時|子|丑|寅|卯|辰|巳|午|未|申|酉|戌|亥/;
+  const timeRegex = /(\d{1,2})時|子|丑|寅|卯|辰|巳|午(?!前|後)|未|申|酉|戌|亥/;
   const timeMatch = normalizedText.match(timeRegex);
   if (timeMatch) {
     const matchText = timeMatch[0];
