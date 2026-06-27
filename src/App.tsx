@@ -29,11 +29,11 @@ const PATCH_REGISTRY: Record<string, Patch> = {
     description: "特定の干が並んだと仮定し、五行の木と火のスコアを増加させます。",
     apply: (m) => ({
       ...m,
-      gogyoScore: { 
-        ...m.gogyoScore, 
-        wood: m.gogyoScore.wood + 15, 
-        fire: m.gogyoScore.fire + 10, 
-        metal: Math.max(0, m.gogyoScore.metal - 10) 
+      gogyoScore: {
+        ...m.gogyoScore,
+        wood: m.gogyoScore.wood + 15,
+        fire: m.gogyoScore.fire + 10,
+        metal: Math.max(0, m.gogyoScore.metal - 10)
       },
       logs: [...m.logs, "[パッチ適用] 干合パッチ: 木(+15) 火(+10) 金(-10) に補正しました。"]
     })
@@ -44,12 +44,12 @@ const PATCH_REGISTRY: Record<string, Patch> = {
     description: "空亡（天中殺）条件に該当したと仮定し、全体のエネルギーを減衰させます。",
     apply: (m) => ({
       ...m,
-      gogyoScore: { 
-        wood: Math.max(0, m.gogyoScore.wood - 5), 
-        fire: Math.max(0, m.gogyoScore.fire - 5), 
-        earth: Math.max(0, m.gogyoScore.earth - 5), 
-        metal: Math.max(0, m.gogyoScore.metal - 5), 
-        water: Math.max(0, m.gogyoScore.water - 5) 
+      gogyoScore: {
+        wood: Math.max(0, m.gogyoScore.wood - 5),
+        fire: Math.max(0, m.gogyoScore.fire - 5),
+        earth: Math.max(0, m.gogyoScore.earth - 5),
+        metal: Math.max(0, m.gogyoScore.metal - 5),
+        water: Math.max(0, m.gogyoScore.water - 5)
       },
       logs: [...m.logs, "[パッチ適用] 空亡パッチ: 全五行スコアを(-5)減点しました。"]
     })
@@ -127,11 +127,11 @@ const PATCH_REGISTRY: Record<string, Patch> = {
       const newScore = { ...m.gogyoScore };
       const minKey = Object.keys(newScore).reduce((a, b) => newScore[a as keyof typeof m.gogyoScore] < newScore[b as keyof typeof m.gogyoScore] ? a : b) as keyof typeof m.gogyoScore;
       const maxKey = Object.keys(newScore).reduce((a, b) => newScore[a as keyof typeof m.gogyoScore] > newScore[b as keyof typeof m.gogyoScore] ? a : b) as keyof typeof m.gogyoScore;
-      
+
       const transferVal = newScore[minKey];
       newScore[minKey] = 0;
       newScore[maxKey] += transferVal;
-      
+
       return {
         ...m,
         gogyoScore: newScore,
@@ -288,12 +288,12 @@ const PATCH_REGISTRY: Record<string, Patch> = {
     apply: (m) => {
       return {
         ...m,
-        gogyoScore: { 
-          wood: Math.max(0, m.gogyoScore.wood - 10), 
-          fire: Math.max(0, m.gogyoScore.fire - 10), 
-          earth: Math.max(0, m.gogyoScore.earth - 10), 
-          metal: Math.max(0, m.gogyoScore.metal - 10), 
-          water: Math.max(0, m.gogyoScore.water - 10) 
+        gogyoScore: {
+          wood: Math.max(0, m.gogyoScore.wood - 10),
+          fire: Math.max(0, m.gogyoScore.fire - 10),
+          earth: Math.max(0, m.gogyoScore.earth - 10),
+          metal: Math.max(0, m.gogyoScore.metal - 10),
+          water: Math.max(0, m.gogyoScore.water - 10)
         },
         logs: [...m.logs, "[パッチ適用] 互換空亡パッチ: 厳しいデバフにより、全五行スコアを(-10)減点しました。"]
       };
@@ -349,21 +349,21 @@ const getGogyoFromKan = (kan: string): string => {
 };
 
 export default function App() {
-  const [year, setYear] = useState(() => Number(localStorage.getItem('uranai_year')) || 1990);
-  const [month, setMonth] = useState(() => Number(localStorage.getItem('uranai_month')) || 1);
-  const [day, setDay] = useState(() => Number(localStorage.getItem('uranai_day')) || 1);
-  const [time, setTime] = useState(() => localStorage.getItem('uranai_time') || "不明");
+  const [year, setYear] = useState(() => Number(localStorage.getItem('sonohi_year')) || 1990);
+  const [month, setMonth] = useState(() => Number(localStorage.getItem('sonohi_month')) || 1);
+  const [day, setDay] = useState(() => Number(localStorage.getItem('sonohi_day')) || 1);
+  const [time, setTime] = useState(() => localStorage.getItem('sonohi_time') || "不明");
   const [activePatches, setActivePatches] = useState<string[]>(() => {
-    const saved = localStorage.getItem('uranai_patches');
+    const saved = localStorage.getItem('sonohi_patches');
     return saved ? JSON.parse(saved) : [];
   });
-  
+
   const [result, setResult] = useState<Meishiki | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isSystemChatOpen, setIsSystemChatOpen] = useState(() => !localStorage.getItem('uranai_year'));
+  const [isSystemChatOpen, setIsSystemChatOpen] = useState(() => !localStorage.getItem('sonohi_year'));
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isOnboarding, setIsOnboarding] = useState(() => !localStorage.getItem('uranai_year'));
+  const [isOnboarding, setIsOnboarding] = useState(() => !localStorage.getItem('sonohi_year'));
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(false);
@@ -374,15 +374,15 @@ export default function App() {
 
   // 設定の自動保存
   useEffect(() => {
-    localStorage.setItem('uranai_year', year.toString());
-    localStorage.setItem('uranai_month', month.toString());
-    localStorage.setItem('uranai_day', day.toString());
-    localStorage.setItem('uranai_time', time);
-    localStorage.setItem('uranai_patches', JSON.stringify(activePatches));
+    localStorage.setItem('sonohi_year', year.toString());
+    localStorage.setItem('sonohi_month', month.toString());
+    localStorage.setItem('sonohi_day', day.toString());
+    localStorage.setItem('sonohi_time', time);
+    localStorage.setItem('sonohi_patches', JSON.stringify(activePatches));
   }, [year, month, day, time, activePatches]);
 
   const togglePatch = (id: string) => {
-    setActivePatches(prev => 
+    setActivePatches(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   };
@@ -424,21 +424,21 @@ export default function App() {
     const nikkanGogyo = getGogyoFromKan(result.kanchi.day.charAt(0));
     const baseStats = calculateRPGStats(result.gogyoScore, nikkanGogyo, []);
     const baseDiagnosis = generateDiagnosis(baseStats, false);
-    
+
     const baseTimeBuffs: TimeBuff[] = [
       { layer: "大運 (10年)", name: "炎のフィールド", effect: { HP: 15, ATK: 5, DEX: 0, DEF: 0, MP: 0 } },
       { layer: "年運 (1年)", name: "知識の雨", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 0, MP: 10 } },
       { layer: "月運 (1ヶ月)", name: "プレッシャー", effect: { HP: 0, ATK: 0, DEX: 0, DEF: 5, MP: 0 } }
     ];
-    
+
     const currentBaseStats = calculateRPGStats(result.gogyoScore, nikkanGogyo, baseTimeBuffs);
     const currentBaseDiagnosis = generateDiagnosis(currentBaseStats, true);
 
-    return { 
+    return {
       nikkanGogyo,
       nikkanKan: result.kanchi.day.charAt(0),
       nisshiKan: result.kanchi.day.charAt(1),
-      baseStats, 
+      baseStats,
       baseDiagnosisType: baseDiagnosis.type,
       currentBaseStats,
       currentBaseDiagnosisType: currentBaseDiagnosis.type,
@@ -448,7 +448,7 @@ export default function App() {
 
   const finalStatsDataList = useMemo(() => {
     if (!result || !baseData) return [];
-    
+
     // 選択された日付（最大2日）についてそれぞれ計算
     return selectedDates.map(date => {
       const dailyBuffEffect = getDailyBuffForDate(date);
@@ -467,14 +467,14 @@ export default function App() {
 
   const monthlyMaxDomain = useMemo(() => {
     if (!result || !baseData || selectedDates.length === 0) return undefined;
-    
+
     const targetDate = selectedDates[0];
     const targetYear = targetDate.getFullYear();
     const targetMonth = targetDate.getMonth();
     const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-    
+
     let maxStatValue = 0;
-    
+
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(targetYear, targetMonth, d);
       const dailyBuffEffect = getDailyBuffForDate(date);
@@ -483,13 +483,13 @@ export default function App() {
         { layer: "日運", name: "temp", effect: dailyBuffEffect }
       ];
       const stats = calculateRPGStats(result.gogyoScore, baseData.nikkanGogyo, tempTimeBuffs);
-      
+
       const currentMax = Math.max(...stats.map(s => s.currentValue));
       if (currentMax > maxStatValue) {
         maxStatValue = currentMax;
       }
     }
-    
+
     // 余裕を持たせず、その月の絶対的な最大値をスケールの最大値に設定する
     // （最大幸運日がグラフの外枠にぴったりくっつくようにする）
     return Math.max(20, maxStatValue);
@@ -501,7 +501,7 @@ export default function App() {
       if (!isCompareMode) {
         return [date];
       }
-      
+
       // 比較モードのロジック
       const exists = prev.find(d => d.getTime() === date.getTime());
       if (exists) {
@@ -530,13 +530,13 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-slate-950 text-slate-300 font-sans selection:bg-indigo-500/30 overflow-hidden">
-      
+
       {/* 2ペイン・スプリットレイアウト */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        
+
         {/* 上半分/左ペイン：カレンダー */}
         <div className="w-full lg:w-5/12 h-[50%] lg:h-full flex flex-col bg-slate-950/50 relative">
-          
+
           {/* コントロール群 */}
           <div className="flex-none p-2 md:p-4 pb-1 md:pb-2 z-30 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 md:gap-2">
@@ -563,14 +563,13 @@ export default function App() {
                 </button>
               )}
             </div>
-            
+
             <button
               onClick={toggleCompareMode}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border backdrop-blur shadow-sm ${
-                isCompareMode 
-                  ? 'bg-pink-500/20 text-pink-400 border-pink-500/50' 
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors text-[10px] font-bold border backdrop-blur shadow-sm ${isCompareMode
+                  ? 'bg-pink-500/20 text-pink-400 border-pink-500/50'
                   : 'bg-slate-800/80 text-slate-300 border-slate-700'
-              }`}
+                }`}
             >
               {isCompareMode ? <ToggleRight size={14} className="text-pink-400" /> : <ToggleLeft size={14} />}
               比較モード
@@ -580,12 +579,12 @@ export default function App() {
           <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2">
             {result && baseData ? (
               <div className="space-y-4">
-                <FortuneCalendar 
+                <FortuneCalendar
                   selectedDates={selectedDates}
                   onSelectDate={handleSelectDate}
                   baseDiagnosisType={baseData.currentBaseDiagnosisType}
                 />
-                
+
                 {/* 本日のアクション指針（詳細）ボタン */}
                 <button
                   onClick={() => setIsAdviceModalOpen(true)}
@@ -609,12 +608,12 @@ export default function App() {
 
         {/* 下半分/右ペイン：鑑定結果 */}
         <div className="w-full lg:w-7/12 h-[50%] lg:h-full overflow-y-auto custom-scrollbar bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 shadow-[0_-15px_40px_rgba(0,0,0,0.5)] lg:shadow-none z-20 relative">
-          
+
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full pointer-events-none"></div>
 
           {result && baseData && finalStatsDataList.length > 0 ? (
             <div className="p-2 md:p-6 space-y-4 max-w-4xl mx-auto">
-              
+
               {/* 時間不明時チャット（1つだけ表示） */}
               {time === "不明" && (
                 <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3 flex items-center justify-between gap-3">
@@ -622,7 +621,7 @@ export default function App() {
                     <MessageCircle size={14} />
                     出生時間不明 (AI推時可能)
                   </div>
-                  <button 
+                  <button
                     onClick={startChat}
                     className="shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] rounded-lg px-3 py-1.5 flex items-center gap-1 transition-colors"
                   >
@@ -632,9 +631,9 @@ export default function App() {
               )}
 
               {/* レーダーチャート（1〜2日分を重ね合わせて比較表示） */}
-              <RPGStatusRadar 
-                scores={result.gogyoScore} 
-                nikkanGogyo={baseData.nikkanGogyo} 
+              <RPGStatusRadar
+                scores={result.gogyoScore}
+                nikkanGogyo={baseData.nikkanGogyo}
                 primaryData={{
                   date: finalStatsDataList[0].date,
                   timeBuffs: finalStatsDataList[0].currentTimeBuffs
@@ -651,9 +650,9 @@ export default function App() {
                 {finalStatsDataList.map((data, index) => {
                   const { nikkanGogyo } = baseData;
                   const isSecond = index === 1;
-                  
+
                   // スタイル分岐
-                  const colorConfig = isSecond 
+                  const colorConfig = isSecond
                     ? { text: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500' }
                     : { text: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500' };
 
@@ -663,20 +662,20 @@ export default function App() {
                         <div className={`w-2 h-2 rounded-full ${colorConfig.bg}`} />
                         {data.date.getMonth() + 1}/{data.date.getDate()}の運勢
                       </h3>
-                      
-                      <DiagnosisReport 
-                        scores={result.gogyoScore} 
-                        nikkanGogyo={nikkanGogyo} 
+
+                      <DiagnosisReport
+                        scores={result.gogyoScore}
+                        nikkanGogyo={nikkanGogyo}
                         timeBuffs={data.currentTimeBuffs}
                       />
                     </div>
                   );
                 })}
               </div>
-              
+
               {/* 専門データ (共通) */}
               <div className="bg-slate-900/50 border border-slate-700/50 rounded-2xl overflow-hidden mt-8 custom-scrollbar">
-                <button 
+                <button
                   onClick={() => setIsDetailsOpen(!isDetailsOpen)}
                   className="w-full flex items-center justify-between p-4 bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
                 >
@@ -686,7 +685,7 @@ export default function App() {
                   </span>
                   {isDetailsOpen ? <ChevronUp size={20} className="text-slate-500" /> : <ChevronDown size={20} className="text-slate-500" />}
                 </button>
-                
+
                 {isDetailsOpen && (
                   <div className="p-4 md:p-6 border-t border-slate-700/50 space-y-6 md:space-y-8">
                     <div>
@@ -749,7 +748,7 @@ export default function App() {
       </div>
 
       {isChatMode && (
-        <AITimeInferenceChat 
+        <AITimeInferenceChat
           birthYear={safeYear}
           birthMonth={safeMonth}
           birthDay={safeDay}
@@ -757,8 +756,8 @@ export default function App() {
           onComplete={(inferredTime) => {
             setTime(inferredTime);
             setIsChatMode(false);
-          }} 
-          onCancel={() => setIsChatMode(false)} 
+          }}
+          onCancel={() => setIsChatMode(false)}
         />
       )}
 
@@ -785,7 +784,7 @@ export default function App() {
       <SettingsDrawer
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        activePatches={activePatches} 
+        activePatches={activePatches}
         togglePatch={togglePatch}
         applyPreset={applyPreset}
         onRequestYashijiMode={handleYashijiModeRequest}
@@ -793,7 +792,7 @@ export default function App() {
       />
 
       {baseData && (
-        <CharacterProfileModal 
+        <CharacterProfileModal
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
           nikkan={baseData.nikkanKan}
@@ -817,30 +816,30 @@ export default function App() {
               <span className="text-red-400">⚠️</span> 暦の前提が変更されます
             </h3>
             <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-              「夜子時パッチ」を切り替えるため、出生日時の前提条件が崩れます。<br/><br/>
+              「夜子時パッチ」を切り替えるため、出生日時の前提条件が崩れます。<br /><br />
               適用する場合、一度生年月日がリセットされますので、再度入力を行ってください。
             </p>
             <div className="flex gap-3">
-              <button 
+              <button
                 className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors font-bold text-sm"
                 onClick={() => setYashijiAlertOpen(false)}
               >
                 キャンセル
               </button>
-              <button 
+              <button
                 className="flex-1 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 rounded-xl transition-colors font-bold text-sm"
                 onClick={() => {
-                  setActivePatches(prev => 
+                  setActivePatches(prev =>
                     prev.includes("PATCH_YASHIJI") ? prev.filter(p => p !== "PATCH_YASHIJI") : [...prev, "PATCH_YASHIJI"]
                   );
                   setYear(0);
                   setMonth(1);
                   setDay(1);
                   setTime("不明");
-                  localStorage.removeItem('uranai_year');
-                  localStorage.removeItem('uranai_month');
-                  localStorage.removeItem('uranai_day');
-                  localStorage.removeItem('uranai_time');
+                  localStorage.removeItem('sonohi_year');
+                  localStorage.removeItem('sonohi_month');
+                  localStorage.removeItem('sonohi_day');
+                  localStorage.removeItem('sonohi_time');
                   setIsSettingsOpen(false);
                   setIsSystemChatOpen(true);
                   setYashijiAlertOpen(false);
