@@ -616,7 +616,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2 lg:flex-1 lg:overflow-y-auto custom-scrollbar">
+          <div className="px-2 pb-2 md:px-4 md:pb-4 pt-1 md:pt-2 lg:overflow-y-auto custom-scrollbar">
             {result && baseData ? (
               <FortuneCalendar
                 selectedDates={selectedDates}
