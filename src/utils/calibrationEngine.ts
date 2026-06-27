@@ -2,13 +2,23 @@ import { Solar } from 'lunar-javascript';
 import { calculateMeishiki } from './meishiki';
 import { calculateRPGStats } from './rpgEngine';
 import { getYearlyBuffScore, BRANCHES } from './suijiEngine';
-import { getAllPatchIds } from './patchRegistry';
+import { getAllPatchIds, PATCH_REGISTRY } from './patchRegistry';
 
 export type CalibrationYears = {
   atkYear: number;
   defYear: number;
   hpYear: number;
   chuYear: number;
+};
+
+export type CalibrationCache = {
+  meishikiNormal: any;
+  meishikiYashiji: any;
+  yearlyData: Array<{
+    year: number;
+    buffScore: { wood: number, fire: number, earth: number, metal: number, water: number };
+    yearBranch: string;
+  }>;
 };
 
 // 支のインデックス取得
@@ -22,34 +32,53 @@ const isChu = (b1: string, b2: string) => {
   return Math.abs(idx1 - idx2) === 6;
 };
 
-/**
- * 現在のパッチ状態のもとで、各パラメータが極端になる年を算出する
- */
-export const calculateCalibrationYears = (
-  birthYear: number,
-  birthMonth: number,
-  birthDay: number,
-  time: string,
-  activePatches: string[] = []
-): CalibrationYears => {
+export const createCalibrationCache = (birthYear: number, birthMonth: number, birthDay: number, time: string): CalibrationCache => {
+  const meishikiNormal = calculateMeishiki(birthYear, birthMonth, birthDay, time);
   
-  // PATCH_YASHIJI が有効で時間が子の場合、日を+1して計算する（簡易的な夜子時対応）
-  let calcDay = birthDay;
-  if (activePatches.includes('PATCH_YASHIJI') && time === '子') {
-    const d = new Date(birthYear, birthMonth - 1, birthDay);
-    d.setDate(d.getDate() + 1);
-    calcDay = d.getDate();
-  }
-
-  const meishiki = calculateMeishiki(birthYear, birthMonth, calcDay, time);
+  const d = new Date(birthYear, birthMonth - 1, birthDay);
+  d.setDate(d.getDate() + 1);
+  const meishikiYashiji = calculateMeishiki(birthYear, birthMonth, d.getDate(), time);
   
   const currentYear = new Date().getFullYear();
-  const startYear = birthYear + 10; // 10歳くらいから現在まで
+  const startYear = birthYear + 10;
+  
+  const yearlyData = [];
+  for (let y = startYear; y <= currentYear; y++) {
+    const buffScore = getYearlyBuffScore(y);
+    const solar = Solar.fromYmdHms(y, 7, 1, 12, 0, 0);
+    const yearBranch = solar.getLunar().getYearInGanZhi().charAt(1);
+    yearlyData.push({ year: y, buffScore, yearBranch });
+  }
+  
+  return { meishikiNormal, meishikiYashiji, yearlyData };
+};
+
+/**
+ * 現在のパッチ状態のもとで、各パラメータが極端になる年を算出する（キャッシュ利用）
+ */
+export const calculateCalibrationYears = (
+  time: string,
+  activePatches: string[],
+  cache: CalibrationCache
+): CalibrationYears => {
+  
+  const baseMeishiki = (activePatches.includes('PATCH_YASHIJI') && time === '子') 
+    ? cache.meishikiYashiji 
+    : cache.meishikiNormal;
+    
+  let meishiki = baseMeishiki;
+  activePatches.forEach(patchId => {
+    const patch = PATCH_REGISTRY[patchId];
+    if (patch && patch.apply) {
+      meishiki = patch.apply(meishiki);
+    }
+  });
   
   let maxAtk = -Infinity;
   let maxDef = -Infinity;
   let minHp = Infinity;
   
+  const currentYear = new Date().getFullYear();
   let atkYear = currentYear - 1;
   let defYear = currentYear - 2;
   let hpYear = currentYear - 3;
@@ -57,29 +86,22 @@ export const calculateCalibrationYears = (
 
   let latestChuYear = -1;
 
-  for (let y = startYear; y <= currentYear; y++) {
-    const yearlyBuff = getYearlyBuffScore(y);
+  for (const data of cache.yearlyData) {
+    const { year: y, buffScore: yearlyBuff, yearBranch } = data;
     
     // パッチによる補正
-    if (activePatches.includes('PATCH_KUBOU')) {
-      Object.keys(yearlyBuff).forEach(k => {
-        yearlyBuff[k as keyof typeof yearlyBuff] *= 0.5;
-      });
-    }
-
+    const buffMultiplier = activePatches.includes('PATCH_KUBOU') ? 0.5 : 1.0;
+    
     const buffedScore = {
-      wood: meishiki.gogyoScore.wood + yearlyBuff.wood,
-      fire: meishiki.gogyoScore.fire + yearlyBuff.fire,
-      earth: meishiki.gogyoScore.earth + yearlyBuff.earth,
-      metal: meishiki.gogyoScore.metal + yearlyBuff.metal,
-      water: meishiki.gogyoScore.water + yearlyBuff.water,
+      wood: meishiki.gogyoScore.wood + (yearlyBuff.wood * buffMultiplier),
+      fire: meishiki.gogyoScore.fire + (yearlyBuff.fire * buffMultiplier),
+      earth: meishiki.gogyoScore.earth + (yearlyBuff.earth * buffMultiplier),
+      metal: meishiki.gogyoScore.metal + (yearlyBuff.metal * buffMultiplier),
+      water: meishiki.gogyoScore.water + (yearlyBuff.water * buffMultiplier),
     };
 
     // 貪合忘冲パッチがない場合のみ冲をチェック
     if (!activePatches.includes('PATCH_CHU_GOU')) {
-      const solar = Solar.fromYmdHms(y, 7, 1, 12, 0, 0);
-      const yearBranch = solar.getLunar().getYearInGanZhi().charAt(1);
-      
       const hasChu = isChu(yearBranch, meishiki.kanchi.year.charAt(1)) ||
                      isChu(yearBranch, meishiki.kanchi.month.charAt(1)) ||
                      isChu(yearBranch, meishiki.kanchi.day.charAt(1)) ||
@@ -120,38 +142,100 @@ export const calculateCalibrationYears = (
 };
 
 /**
- * 焼きなまし法による次のパッチ状態の生成（近傍探索）
- * 温度が高いほど、より多くのパッチを同時に反転させ、大きなジャンプ（広域探索）を許容する
+ * 指定されたパッチ構成と年における、特定ステータスの絶対値（振幅）を計算する。
+ * YESの場合はこの数値を高めるパッチを、NOの場合はこの数値を下げるパッチを評価する。
  */
-export const getNextPatchState = (currentPatches: string[], temperature: number): string[] => {
-  const nextPatches = [...currentPatches];
-  const allPatches = getAllPatchIds();
-  
-  // 温度が1.0に近いほど多く反転（最大でも全パッチの30%程度）、0に近いほど1個だけ反転
-  const maxFlips = Math.max(1, Math.floor(allPatches.length * 0.3 * temperature));
-  const numFlips = Math.floor(Math.random() * maxFlips) + 1;
-  
-  for (let i = 0; i < numFlips; i++) {
-    const targetPatch = allPatches[Math.floor(Math.random() * allPatches.length)];
-    const idx = nextPatches.indexOf(targetPatch);
-    if (idx !== -1) {
-      nextPatches.splice(idx, 1);
-    } else {
-      nextPatches.push(targetPatch);
+export const calculateStatValueForYear = (
+  time: string,
+  activePatches: string[],
+  cache: CalibrationCache,
+  statKey: string,
+  targetYear: number
+): number => {
+  const baseMeishiki = (activePatches.includes('PATCH_YASHIJI') && time === '子') 
+    ? cache.meishikiYashiji 
+    : cache.meishikiNormal;
+    
+  let meishiki = baseMeishiki;
+  activePatches.forEach(patchId => {
+    const patch = PATCH_REGISTRY[patchId];
+    if (patch && patch.apply) {
+      meishiki = patch.apply(meishiki);
     }
+  });
+
+  const yd = cache.yearlyData.find(y => y.year === targetYear);
+  if (!yd) return 0;
+
+  if (statKey === 'CHU') {
+    if (activePatches.includes('PATCH_CHU_GOU')) return 0;
+    const hasChu = isChu(yd.yearBranch, meishiki.kanchi.year.charAt(1)) ||
+                   isChu(yd.yearBranch, meishiki.kanchi.month.charAt(1)) ||
+                   isChu(yd.yearBranch, meishiki.kanchi.day.charAt(1)) ||
+                   (time !== '不明' && isChu(yd.yearBranch, meishiki.kanchi.time.charAt(1)));
+    return hasChu ? 100 : 0;
+  }
+
+  const buffMultiplier = activePatches.includes('PATCH_KUBOU') ? 0.5 : 1.0;
+
+  const buffedScore = {
+    wood: meishiki.gogyoScore.wood + (yd.buffScore.wood * buffMultiplier),
+    fire: meishiki.gogyoScore.fire + (yd.buffScore.fire * buffMultiplier),
+    earth: meishiki.gogyoScore.earth + (yd.buffScore.earth * buffMultiplier),
+    metal: meishiki.gogyoScore.metal + (yd.buffScore.metal * buffMultiplier),
+    water: meishiki.gogyoScore.water + (yd.buffScore.water * buffMultiplier)
+  };
+  
+  const stats = calculateRPGStats(buffedScore, meishiki.nikkanGogyo, []);
+  const targetStat = stats.find(s => s.key === statKey);
+  
+  // HPは低いほど影響が大きい（ダメージ）ので反転するか、スコアリング側で考慮する
+  // 今回のスコアリングは「YES=値が高いほど良い」となっているが、HPの場合は低いほどペナルティなので
+  // HPの振幅は「低さ」を絶対値として返す（100 - currentValue）
+  if (statKey === 'HP') {
+    return targetStat ? Math.max(0, 100 - targetStat.currentValue) : 0;
   }
   
-  return nextPatches;
+  return targetStat ? targetStat.currentValue : 0;
 };
 
-/**
- * 焼きなまし法の遷移確率判定
- * 新しいスコア（YESの数）が良ければ必ず遷移、悪ければ確率的に遷移
- */
-export const shouldAcceptNewState = (oldScore: number, newScore: number, temperature: number): boolean => {
-  if (newScore > oldScore) return true;
-  if (temperature <= 0) return false;
+function* getCombinations(arr: string[], r: number): Generator<string[]> {
+  const n = arr.length;
+  if (r === 0) {
+    yield [];
+    return;
+  }
+  if (r === n) {
+    yield [...arr];
+    return;
+  }
   
-  const probability = Math.exp((newScore - oldScore) / temperature);
-  return Math.random() < probability;
-};
+  const indices = new Array(r);
+  for (let i = 0; i < r; i++) indices[i] = i;
+  
+  while (true) {
+    yield indices.map(i => arr[i]);
+    
+    let i = r - 1;
+    while (i >= 0 && indices[i] === i + n - r) {
+      i--;
+    }
+    if (i < 0) break;
+    
+    indices[i]++;
+    for (let j = i + 1; j < r; j++) {
+      indices[j] = indices[j - 1] + 1;
+    }
+  }
+}
+
+/**
+ * 適用するパッチの数が少ない順（0個, 1個, 2個...）に、
+ * 全てのパッチの組み合わせを生成するジェネレータ
+ */
+export function* generateAllPatchCombinations(): Generator<string[], void, unknown> {
+  const allPatches = getAllPatchIds();
+  for (let r = 0; r <= allPatches.length; r++) {
+    yield* getCombinations(allPatches, r);
+  }
+}

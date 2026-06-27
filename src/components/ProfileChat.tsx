@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Send, X, Loader2 } from 'lucide-react';
 import { inferTrueTimePillar, extractTraumaYear, getYearlyBuffScore } from '../utils/suijiEngine';
-import { calculateCalibrationYears, getNextPatchState, shouldAcceptNewState, type CalibrationYears } from '../utils/calibrationEngine';
+import { calculateCalibrationYears, generateAllPatchCombinations, type CalibrationYears, createCalibrationCache, calculateStatValueForYear } from '../utils/calibrationEngine';
 import { calculateMeishiki } from '../utils/meishiki';
 import { calculateRPGStats } from '../utils/rpgEngine';
 import { type StatKey } from './RPGStatusRadar';
@@ -63,11 +63,15 @@ export const ProfileChat = ({
 
   // キャリブレーション用ステート
   const [calibPatches, setCalibPatches] = useState<string[]>([]);
-  const [calibTemp, setCalibTemp] = useState<number>(1.0);
-  const [calibBestScore, setCalibBestScore] = useState<number>(-1);
   const [calibYears, setCalibYears] = useState<CalibrationYears | null>(null);
-  const [calibStep, setCalibStep] = useState<number>(0);
-  const [calibAnswers, setCalibAnswers] = useState<Record<string, { year: number, answer: boolean }>>({});
+  
+  // 占い師の対話フロー用ステート
+  const [calibConfirmed, setCalibConfirmed] = useState<Record<string, number>>({});
+  const [calibRejected, setCalibRejected] = useState<Array<{key: string, year: number}>>([]);
+  const [calibTargetKey, setCalibTargetKey] = useState<string>('');
+  
+  // 全探索ジェネレータのインスタンスを保持するRef
+  const generatorRef = useRef<Generator<string[], void, unknown> | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -141,13 +145,14 @@ export const ProfileChat = ({
     setIsProcessing(false);
     
     if (data.year && data.month && data.day) {
-      setTempDate({ y: data.year, m: data.month, d: data.day });
+      const parsed = { y: data.year, m: data.month, d: data.day };
+      setTempDate(parsed);
       
       if (isOnboarding) {
         setPhase('ask_time');
         addAssistantMessage(`ありがとうございます！「****年${data.month}月${data.day}日」ですね。\n\n最後に、生まれた時間はわかりますか？\n（例：14時30分、わからない場合は「不明」で構いません）`, ['14時ごろです', '不明です', 'AIに推測してほしい']);
       } else {
-        startCalibration(data.year, data.month, data.day, currentTime);
+        startCalibration(parsed);
       }
       return;
     }
@@ -184,15 +189,13 @@ export const ProfileChat = ({
          return;
       } else if (data.time) {
         savedTimeRef.current = data.time;
-        const y = tempDate ? tempDate.y : currentYear;
-        const m = tempDate ? tempDate.m : currentMonth;
-        const d = tempDate ? tempDate.d : currentDay;
+        
         
         let responseText = `時間を「${formatTimeLabel(data.time)}」として設定しました！`;
         addAssistantMessage(responseText);
         
         setTimeout(() => {
-          startCalibration(y, m, d, data.time!);
+          startCalibration();
         }, 500);
         return;
       } else {
@@ -231,83 +234,99 @@ export const ProfileChat = ({
     addAssistantMessage(responseText);
     
     setTimeout(() => {
-      startCalibration(y, m, d, time);
+      startCalibration({y, m, d});
     }, 2000);
   };
 
   const CALIB_QUESTIONS = [
-    { key: 'ATK', text: (age: number) => age <= 22 ? `${age}歳の頃、部活や勉強、進路などで大きな勝負に出たり、新しいことに挑戦しませんでしたか？` : `${age}歳の頃、仕事やプライベートで何か大きな勝負に出たり、独立・転職など新しい挑戦をしませんでしたか？` },
-    { key: 'DEF', text: (age: number) => age <= 22 ? `${age}歳の頃は、周りに合わせて自分を押し殺したり、じっと耐え忍ぶような時期ではありませんでしたか？` : `${age}歳の頃は、自分の意見を押し殺してじっと耐え忍ぶような、我慢の時期ではありませんでしたか？` },
-    { key: 'HP', text: (age: number) => age <= 22 ? `${age}歳の頃、勉強や部活、人間関係で心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？` : `${age}歳の頃、心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？` },
-    { key: 'CHU', text: (age: number) => age <= 22 ? `${age}歳の頃、親しい友人との突然の別れや、学校など環境の予期せぬ激変がありませんでしたか？` : `${age}歳の頃、親しい人との突然の別れや、予期せぬ環境の激変がありませんでしたか？` }
+    { key: 'ATK', text: (age: number) => age <= 18 ? `${age}歳の頃、部活や勉強、進路などで大きな勝負に出たり、新しいことに挑戦しませんでしたか？` : (age <= 22 ? `${age}歳の頃、学校や仕事、進路などで大きな勝負に出たり、新しいことに挑戦しませんでしたか？` : `${age}歳の頃、仕事やプライベートで何か大きな勝負に出たり、独立・転職など新しい挑戦をしませんでしたか？`) },
+    { key: 'DEF', text: (age: number) => age <= 18 ? `${age}歳の頃は、周りに合わせて自分を押し殺したり、じっと耐え忍ぶような時期ではありませんでしたか？` : (age <= 22 ? `${age}歳の頃は、学校や職場で自分を押し殺したり、じっと耐え忍ぶような時期ではありませんでしたか？` : `${age}歳の頃は、自分の意見を押し殺してじっと耐え忍ぶような、我慢の時期ではありませんでしたか？`) },
+    { key: 'HP', text: (age: number) => age <= 18 ? `${age}歳の頃、勉強や部活、人間関係で心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？` : (age <= 22 ? `${age}歳の頃、学校や職場の人間関係などで心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？` : `${age}歳の頃、心身のエネルギーがすり減って、燃え尽きそうになった経験がありませんでしたか？`) },
+    { key: 'CHU', text: (age: number) => age <= 22 ? `${age}歳の頃、親しい友人との突然の別れや、環境の予期せぬ激変がありませんでしたか？` : `${age}歳の頃、親しい人との突然の別れや、予期せぬ環境の激変がありませんでしたか？` }
   ];
 
-  const startCalibration = (y: number, m: number, d: number, t: string) => {
+  const startCalibration = (overrideDate?: {y: number, m: number, d: number}) => {
     setPhase('calibration');
-    setCalibStep(0);
     setCalibPatches([]);
-    setCalibTemp(1.0);
-    setCalibBestScore(-1);
-    setCalibAnswers({});
+    setCalibConfirmed({});
+    setCalibRejected([]);
     
-    const years = calculateCalibrationYears(y, m, d, t, []);
-    setCalibYears(years);
-  
-    addAssistantMessage("最後に、AIの精度を高めるため「パッチキャリブレーション」を行います。過去の出来事について4つ質問させてください。");
-    
-    setTimeout(() => {
-      askCalibrationQuestion(0, years, {});
-    }, 1000);
+    // 初回はパッチなしで探索を開始するようなものだが、最初から探索エンジンを回す
+    evaluateCalibrationRound({}, [], overrideDate);
   };
 
-  const askCalibrationQuestion = (step: number, years: CalibrationYears, answers: typeof calibAnswers) => {
-    const q = CALIB_QUESTIONS[step];
+  const askCalibrationQuestion = (targetKey: string, years: CalibrationYears) => {
+    const q = CALIB_QUESTIONS.find(c => c.key === targetKey)!;
+    
+    setCalibTargetKey(targetKey);
     
     let targetYear = 0;
     if (q.key === 'ATK') targetYear = years.atkYear;
     if (q.key === 'DEF') targetYear = years.defYear;
     if (q.key === 'HP') targetYear = years.hpYear;
     if (q.key === 'CHU') targetYear = years.chuYear;
-  
-    if (targetYear === 0) {
-      handleCalibrationAnswer(true, step, years, answers, true);
-      return;
-    }
   
     const birthYear = tempDate ? tempDate.y : currentYear;
     const age = targetYear - birthYear;
   
-    if (answers[q.key] && answers[q.key].year === targetYear) {
-      handleCalibrationAnswer(answers[q.key].answer, step, years, answers, true);
-      return;
-    }
-  
-    setCalibStep(step);
     addAssistantMessage(q.text(age), ['Yes', 'No']);
   };
 
-  const handleCalibrationAnswer = (isYes: boolean, step: number, years: CalibrationYears, currentAnswers: typeof calibAnswers, isAutoSkip: boolean) => {
-    const q = CALIB_QUESTIONS[step];
+  const handleCalibrationAnswer = (isYes: boolean, currentKey: string, years: CalibrationYears, currentConfirmed: Record<string, number>, currentRejected: Array<{key: string, year: number}>) => {
     let targetYear = 0;
-    if (q.key === 'ATK') targetYear = years.atkYear;
-    if (q.key === 'DEF') targetYear = years.defYear;
-    if (q.key === 'HP') targetYear = years.hpYear;
-    if (q.key === 'CHU') targetYear = years.chuYear;
+    if (currentKey === 'ATK') targetYear = years.atkYear;
+    if (currentKey === 'DEF') targetYear = years.defYear;
+    if (currentKey === 'HP') targetYear = years.hpYear;
+    if (currentKey === 'CHU') targetYear = years.chuYear;
   
-    const newAnswers = { ...currentAnswers };
-    if (targetYear !== 0) {
-      newAnswers[q.key] = { year: targetYear, answer: isYes };
-    }
-    setCalibAnswers(newAnswers);
-  
-    if (step < 3) {
-      if (!isAutoSkip) {
-        setTimeout(() => askCalibrationQuestion(step + 1, years, newAnswers), 500);
-      } else {
-        askCalibrationQuestion(step + 1, years, newAnswers);
+    const newConfirmed = { ...currentConfirmed };
+    const newRejected = [...currentRejected];
+
+    if (isYes) {
+      newConfirmed[currentKey] = targetYear;
+      setCalibConfirmed(newConfirmed);
+      
+      // 4つ揃ったら完了
+      if (Object.keys(newConfirmed).length >= 4) {
+        completeCalibration(4);
+        return;
       }
+      
+      // 1つでもYESが出たら（足場ができた）、パッチを焼き直して次の質問を探す
+      evaluateCalibrationRound(newConfirmed, newRejected);
     } else {
-      evaluateCalibrationRound(newAnswers);
+      newRejected.push({ key: currentKey, year: targetYear });
+      setCalibRejected(newRejected);
+      
+      // NOの場合はパッチを変えずに、同じ盤面（years）の中でまだ聞いていない別の項目を探す
+      const keys = ['ATK', 'DEF', 'HP', 'CHU'];
+      let nextKey = '';
+      for (const k of keys) {
+        if (newConfirmed[k]) continue; // 既にYES
+        
+        let y = 0;
+        if (k === 'ATK') y = years.atkYear;
+        if (k === 'DEF') y = years.defYear;
+        if (k === 'HP') y = years.hpYear;
+        if (k === 'CHU') y = years.chuYear;
+        
+        if (y === 0) continue; // 発生しないイベントはスキップ
+        
+        // 過去にNOと言われた組み合わせでないか？
+        const isRejected = newRejected.some(r => r.key === k && r.year === y);
+        if (!isRejected) {
+          nextKey = k;
+          break;
+        }
+      }
+      
+      if (nextKey) {
+        // パッチを変えずに次の質問へ
+        askCalibrationQuestion(nextKey, years);
+      } else {
+        // この盤面で聞けることが無くなった（全てNOだった、または手詰まり） -> 焼き直す
+        evaluateCalibrationRound(newConfirmed, newRejected);
+      }
     }
   };
 
@@ -349,9 +368,9 @@ export const ProfileChat = ({
 
     const getFeedbackText = (key: string, targetYear: number, birthYear: number) => {
       const age = targetYear - birthYear;
-      if (key === 'ATK') return age <= 22 ? `${age}歳の頃の「部活や進路での大きな挑戦」` : `${age}歳の頃の「仕事やプライベートでの大きな勝負」`;
-      if (key === 'DEF') return age <= 22 ? `${age}歳の頃の「周りに合わせて自分を押し殺した忍耐」` : `${age}歳の頃の「自分の意見を押し殺してじっと耐え忍んだ経験」`;
-      if (key === 'HP') return age <= 22 ? `${age}歳の頃の「人間関係や勉強で燃え尽きそうになった経験」` : `${age}歳の頃の「エネルギーがすり減って燃え尽きそうになった経験」`;
+      if (key === 'ATK') return age <= 18 ? `${age}歳の頃の「部活や進路での大きな挑戦」` : (age <= 22 ? `${age}歳の頃の「学校や仕事での大きな挑戦」` : `${age}歳の頃の「仕事やプライベートでの大きな勝負」`);
+      if (key === 'DEF') return age <= 18 ? `${age}歳の頃の「周りに合わせて自分を押し殺した忍耐」` : (age <= 22 ? `${age}歳の頃の「環境に合わせて自分を押し殺した忍耐」` : `${age}歳の頃の「自分の意見を押し殺してじっと耐え忍んだ経験」`);
+      if (key === 'HP') return age <= 18 ? `${age}歳の頃の「人間関係や勉強で燃え尽きそうになった経験」` : (age <= 22 ? `${age}歳の頃の「学校や職場で燃え尽きそうになった経験」` : `${age}歳の頃の「エネルギーがすり減って燃え尽きそうになった経験」`);
       return '';
     };
 
@@ -385,104 +404,119 @@ export const ProfileChat = ({
     onUpdateProfile(y, m, d, savedTimeRef.current, calibPatches, true);
   };
 
-  const evaluateCalibrationRound = (finalAnswers: typeof calibAnswers) => {
-    let score = 0;
-    Object.values(finalAnswers).forEach(a => {
-      if (a.answer) score++;
-    });
-  
-    if (score === 4) {
-      completeCalibration(4);
-      return;
-    }
-
-    addAssistantMessage("数千パターンの流派組み合わせから、最適な運命グラフを再計算しています... しばらくお待ち下さい。");
+  const evaluateCalibrationRound = (
+    currentConfirmed: Record<string, number>, 
+    currentRejected: Array<{key: string, year: number}>,
+    overrideDate?: {y: number, m: number, d: number}
+  ) => {
+    addAssistantMessage("過去のデータを照合し、26万通りの流派組み合わせから最適な運命グラフを探索しています... しばらくお待ち下さい。");
     setIsProcessing(true);
+    setLoadingStatus('キャリブレーション実行中...');
+    
+    const y = overrideDate ? overrideDate.y : (tempDate ? tempDate.y : currentYear);
+    const m = overrideDate ? overrideDate.m : (tempDate ? tempDate.m : currentMonth);
+    const d = overrideDate ? overrideDate.d : (tempDate ? tempDate.d : currentDay);
+    const t = savedTimeRef.current;
+    
+    // 全探索用の事前キャッシュを作成
+    const cache = createCalibrationCache(y, m, d, t);
 
-    const y = tempDate ? tempDate.y : currentYear;
-    const m = tempDate ? tempDate.m : currentMonth;
-    const d = tempDate ? tempDate.d : currentDay;
+    // ピーク年はパッチによって変わらないため、ベース状態で一度だけ計算して全パッチで使い回す（超高速化）
+    const defaultYears = calculateCalibrationYears(t, [], cache);
 
-    let currentTemp = calibTemp;
-    let currentBestScore = calibBestScore;
-    let currentPatches = calibPatches;
-    const currentAnswers = finalAnswers;
-    let loopCount = 0;
-    const MAX_LOOPS = 2000;
-    const CHUNK_SIZE = 50;
+    generatorRef.current = generateAllPatchCombinations();
+    
+    let totalChecked = 0;
+    const CHUNK_SIZE = 500;
+    const TOTAL_COMBINATIONS = 262144; // 2^18
+    let currentBestPatches: string[] = [];
+    let currentBestNextKey = '';
+    let currentBestScore = -999999;
+    
+    // 最新の適用パッチ数を画面に出すため
+    let currentPatchCount = 0;
 
-    if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
-      currentBestScore = score;
-      setCalibBestScore(score);
-    }
-
-    const runChunk = () => {
-      let needNewQuestion = false;
-      let newYears: CalibrationYears | null = null;
+    const runChunk = async () => {
       let chunkLoop = 0;
-
-      while (currentTemp >= 0.1 && score < 4 && chunkLoop < CHUNK_SIZE && loopCount < MAX_LOOPS) {
-        loopCount++;
-        chunkLoop++;
-        const nextPatches = getNextPatchState(currentPatches, currentTemp);
-        const nextYears = calculateCalibrationYears(y, m, d, savedTimeRef.current, nextPatches);
+      
+      while (chunkLoop < CHUNK_SIZE) {
+        if (!generatorRef.current) break;
+        const result = generatorRef.current.next();
         
-        const targetYears = {
-          ATK: nextYears.atkYear,
-          DEF: nextYears.defYear,
-          HP: nextYears.hpYear,
-          CHU: nextYears.chuYear
-        };
-
-        let hasNewQuestion = false;
-        let nextScore = 0;
-        
-        for (const key of ['ATK', 'DEF', 'HP', 'CHU'] as const) {
-          const k = key as keyof typeof targetYears;
-          if (targetYears[k] === 0) {
-            nextScore++; 
-          } else if (currentAnswers[k] && currentAnswers[k].year === targetYears[k]) {
-            if (currentAnswers[k].answer) nextScore++;
+        if (result.done) {
+          // 全探索終了
+          setIsProcessing(false);
+          setLoadingStatus('');
+          if (currentBestNextKey) {
+            setCalibPatches(currentBestPatches);
+            setCalibYears(defaultYears); // ピーク年は不変
+            askCalibrationQuestion(currentBestNextKey, defaultYears);
           } else {
-            hasNewQuestion = true;
+            completeCalibration(Object.keys(currentConfirmed).length);
+          }
+          return;
+        }
+
+        const nextPatches = result.value;
+        currentPatchCount = nextPatches.length;
+        
+        chunkLoop++;
+        totalChecked++;
+
+        // 振幅（Amplitude）ベースのスコアリング
+        let score = 0;
+        
+        // 1. YESと言われた属性は、その年の数値をプラス評価
+        for (const [k, year] of Object.entries(currentConfirmed)) {
+          const statVal = calculateStatValueForYear(t, nextPatches, cache, k, year);
+          score += statVal;
+        }
+        
+        // 2. NOと言われた属性は、その年の数値をマイナス評価（数値が高いほど強烈なペナルティ）
+        for (const rej of currentRejected) {
+          const statVal = calculateStatValueForYear(t, nextPatches, cache, rej.key, rej.year);
+          // ペナルティの重みを2倍にして、数値を下げた（空亡などでゼロにした）パッチを強く優遇
+          score -= statVal * 2;
+        }
+        
+        // 3. 進行条件（新しい質問ができるか）
+        let nextQuestionKey = '';
+        for (const k of ['ATK', 'DEF', 'HP', 'CHU']) {
+          if (currentConfirmed[k]) continue;
+          
+          let targetY = 0;
+          if (k === 'ATK') targetY = defaultYears.atkYear;
+          if (k === 'DEF') targetY = defaultYears.defYear;
+          if (k === 'HP') targetY = defaultYears.hpYear;
+          if (k === 'CHU') targetY = defaultYears.chuYear;
+          
+          if (targetY === 0) continue;
+          
+          const isRejected = currentRejected.some(r => r.key === k && r.year === targetY);
+          if (!isRejected) {
+            if (!nextQuestionKey) nextQuestionKey = k;
+            score += 50; // 新しい質問の種があれば加点
           }
         }
 
-        if (hasNewQuestion && nextScore >= currentBestScore) {
-          needNewQuestion = true;
-          currentPatches = nextPatches;
-          currentTemp = currentTemp * 0.99;
-          newYears = nextYears;
-          break;
-        } else {
-          score = nextScore;
-          if (shouldAcceptNewState(currentBestScore, score, currentTemp)) {
-            currentBestScore = score;
-          }
-          currentPatches = nextPatches;
-          currentTemp = currentTemp * 0.99;
+        // 全てのパッチを評価して最高のスコア（振幅の最適解）を探す
+        if (score > currentBestScore) {
+          currentBestScore = score;
+          currentBestPatches = nextPatches;
+          currentBestNextKey = nextQuestionKey;
         }
       }
 
-      if (needNewQuestion && newYears) {
-        setIsProcessing(false);
-        setCalibPatches(currentPatches);
-        setCalibTemp(currentTemp);
-        setCalibBestScore(currentBestScore);
-        setCalibYears(newYears);
-        askCalibrationQuestion(0, newYears, currentAnswers);
-      } else if (currentTemp < 0.1 || score === 4 || loopCount >= MAX_LOOPS) {
-        setIsProcessing(false);
-        setCalibPatches(currentPatches);
-        setCalibTemp(currentTemp);
-        setCalibBestScore(currentBestScore);
-        completeCalibration(currentBestScore);
-      } else {
-        setTimeout(runChunk, 0);
-      }
+      // チャンク終了、UI更新して次へ
+      const percentage = Math.min(100, Math.floor((totalChecked / TOTAL_COMBINATIONS) * 100));
+      setLoadingStatus(`検証中: ${totalChecked.toLocaleString()} / ${TOTAL_COMBINATIONS.toLocaleString()} 通り (${percentage}%) | パッチ適用数: ${currentPatchCount}個`);
+      
+      // 非同期でイベントループを確実に解放し、Reactに描画させる
+      await new Promise(resolve => setTimeout(resolve, 0));
+      runChunk();
     };
 
-    setTimeout(runChunk, 0);
+    runChunk();
   };
 
   const sendMessage = (overrideText?: string) => {
@@ -553,7 +587,7 @@ export const ProfileChat = ({
       
       setMessages(prev => [...prev, { role: 'user', content: text }]);
       setInput('');
-      handleCalibrationAnswer(isYes, calibStep, calibYears!, calibAnswers, false);
+      handleCalibrationAnswer(isYes, calibTargetKey, calibYears!, calibConfirmed, calibRejected);
       return;
     }
 
@@ -631,11 +665,6 @@ export const ProfileChat = ({
               <div className="bg-slate-800/50 border border-slate-700/50 text-slate-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-2">
                 <Loader2 size={12} className="animate-spin text-indigo-400 shrink-0" />
                 <span className="whitespace-nowrap">AIモデルを初期化中...</span>
-                {loadingStatus && (
-                  <span className="opacity-50 w-32 inline-block truncate align-bottom">
-                    {loadingStatus}
-                  </span>
-                )}
               </div>
             </div>
           )}
@@ -656,7 +685,9 @@ export const ProfileChat = ({
             <div className="flex justify-start animate-in fade-in duration-300">
               <div className="bg-slate-800 text-slate-400 rounded-2xl rounded-tl-none border border-slate-700 p-4 shadow-lg flex items-center gap-3">
                 <Loader2 size={16} className="animate-spin text-indigo-400" />
-                <span className="text-sm">AIが推論中...</span>
+                <span className="text-sm whitespace-nowrap">
+                  {loadingStatus ? loadingStatus : "AIが推論中..."}
+                </span>
               </div>
             </div>
           )}
