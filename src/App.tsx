@@ -616,7 +616,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-2 md:px-4 pt-1 md:pt-2">
+          <div className="shrink overflow-y-auto custom-scrollbar px-2 md:px-4 pt-1 md:pt-2">
             {result && baseData ? (
               <FortuneCalendar
                 selectedDates={selectedDates}
